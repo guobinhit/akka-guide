@@ -1,0 +1,21 @@
+apply plugin: 'java'
+apply plugin: 'idea'
+apply plugin: 'application'
+
+
+repositories {
+    mavenCentral()
+    mavenLocal()
+}
+
+dependencies {
+  compile 'com.typesafe.akka:akka-actor_2.12:2.5.19'
+  testCompile 'com.typesafe.akka:akka-testkit_2.12:2.5.19'
+  testCompile 'junit:junit:4.12'
+}
+
+mainClassName = "com.lightbend.akka.sample.AkkaQuickstart"
+
+run {
+  standardInput = System.in
+}
