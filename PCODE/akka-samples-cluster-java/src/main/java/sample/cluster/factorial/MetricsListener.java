@@ -13,55 +13,55 @@ import akka.event.Logging;
 import akka.event.LoggingAdapter;
 
 public class MetricsListener extends AbstractActor {
-  LoggingAdapter log = Logging.getLogger(getContext().system(), this);
+    LoggingAdapter log = Logging.getLogger(getContext().system(), this);
 
-  Cluster cluster = Cluster.get(getContext().system());
-  
-  ClusterMetricsExtension extension = ClusterMetricsExtension.get(getContext().system());
+    Cluster cluster = Cluster.get(getContext().system());
 
-  
-  // Subscribe unto ClusterMetricsEvent events.
-  @Override
-  public void preStart() {
-	  extension.subscribe(self());
-  }
+    ClusterMetricsExtension extension = ClusterMetricsExtension.get(getContext().system());
 
-  // Unsubscribe from ClusterMetricsEvent events.
-  @Override
-  public void postStop() {
-	  extension.unsubscribe(self());
-  }
 
-  @Override
-  public Receive createReceive() {
-    return receiveBuilder()
-      .match(ClusterMetricsChanged.class, clusterMetrics -> {
-        for (NodeMetrics nodeMetrics : clusterMetrics.getNodeMetrics()) {
-          if (nodeMetrics.address().equals(cluster.selfAddress())) {
-            logHeap(nodeMetrics);
-            logCpu(nodeMetrics);
-          }
+    // Subscribe unto ClusterMetricsEvent events.
+    @Override
+    public void preStart() {
+        extension.subscribe(self());
+    }
+
+    // Unsubscribe from ClusterMetricsEvent events.
+    @Override
+    public void postStop() {
+        extension.unsubscribe(self());
+    }
+
+    @Override
+    public Receive createReceive() {
+        return receiveBuilder()
+                .match(ClusterMetricsChanged.class, clusterMetrics -> {
+                    for (NodeMetrics nodeMetrics : clusterMetrics.getNodeMetrics()) {
+                        if (nodeMetrics.address().equals(cluster.selfAddress())) {
+                            logHeap(nodeMetrics);
+                            logCpu(nodeMetrics);
+                        }
+                    }
+                })
+                .match(CurrentClusterState.class, message -> {
+                    // Ignore.
+                })
+                .build();
+    }
+
+    void logHeap(NodeMetrics nodeMetrics) {
+        HeapMemory heap = StandardMetrics.extractHeapMemory(nodeMetrics);
+        if (heap != null) {
+            log.info("Used heap: {} MB", ((double) heap.used()) / 1024 / 1024);
         }
-      })
-      .match(CurrentClusterState.class, message -> {
-        // Ignore.
-      })
-      .build();
-  }
-
-  void logHeap(NodeMetrics nodeMetrics) {
-    HeapMemory heap = StandardMetrics.extractHeapMemory(nodeMetrics);
-    if (heap != null) {
-      log.info("Used heap: {} MB", ((double) heap.used()) / 1024 / 1024);
     }
-  }
 
-  void logCpu(NodeMetrics nodeMetrics) {
-    Cpu cpu = StandardMetrics.extractCpu(nodeMetrics);
-    if (cpu != null && cpu.systemLoadAverage().isDefined()) {
-      log.info("Load: {} ({} processors)", cpu.systemLoadAverage().get(), 
-        cpu.processors());
+    void logCpu(NodeMetrics nodeMetrics) {
+        Cpu cpu = StandardMetrics.extractCpu(nodeMetrics);
+        if (cpu != null && cpu.systemLoadAverage().isDefined()) {
+            log.info("Load: {} ({} processors)", cpu.systemLoadAverage().get(),
+                    cpu.processors());
+        }
     }
-  }
 
 }

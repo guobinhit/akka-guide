@@ -13,39 +13,39 @@ import akka.cluster.singleton.ClusterSingletonProxySettings;
 
 public class StatsSampleOneMasterMain {
 
-  public static void main(String[] args) {
-    if (args.length == 0) {
-      startup(new String[] { "2551", "2552", "0" });
-      StatsSampleOneMasterClientMain.main(new String[0]);
-    } else {
-      startup(args);
-    }
-  }
-
-  public static void startup(String[] ports) {
-    for (String port : ports) {
-      // Override the configuration of the port
-      // To use artery instead of netty, change to "akka.remote.artery.canonical.port"
-      // See https://doc.akka.io/docs/akka/current/remoting-artery.html for details
-      Config config = ConfigFactory.parseString(
-          "akka.remote.netty.tcp.port=" + port)
-          .withFallback(
-              ConfigFactory.parseString("akka.cluster.roles = [compute]"))
-          .withFallback(ConfigFactory.load("stats2"));
-
-      ActorSystem system = ActorSystem.create("ClusterSystem", config);
-
-      ClusterSingletonManagerSettings settings = ClusterSingletonManagerSettings.create(system)
-          .withRole("compute");
-      system.actorOf(ClusterSingletonManager.props(
-          Props.create(StatsService.class), PoisonPill.getInstance(), settings),
-          "statsService");
-
-      ClusterSingletonProxySettings proxySettings =
-          ClusterSingletonProxySettings.create(system).withRole("compute");
-      system.actorOf(ClusterSingletonProxy.props("/user/statsService",
-          proxySettings), "statsServiceProxy");
+    public static void main(String[] args) {
+        if (args.length == 0) {
+            startup(new String[]{"2551", "2552", "0"});
+            StatsSampleOneMasterClientMain.main(new String[0]);
+        } else {
+            startup(args);
+        }
     }
 
-  }
+    public static void startup(String[] ports) {
+        for (String port : ports) {
+            // Override the configuration of the port
+            // To use artery instead of netty, change to "akka.remote.artery.canonical.port"
+            // See https://doc.akka.io/docs/akka/current/remoting-artery.html for details
+            Config config = ConfigFactory.parseString(
+                    "akka.remote.netty.tcp.port=" + port)
+                    .withFallback(
+                            ConfigFactory.parseString("akka.cluster.roles = [compute]"))
+                    .withFallback(ConfigFactory.load("stats2"));
+
+            ActorSystem system = ActorSystem.create("ClusterSystem", config);
+
+            ClusterSingletonManagerSettings settings = ClusterSingletonManagerSettings.create(system)
+                    .withRole("compute");
+            system.actorOf(ClusterSingletonManager.props(
+                    Props.create(StatsService.class), PoisonPill.getInstance(), settings),
+                    "statsService");
+
+            ClusterSingletonProxySettings proxySettings =
+                    ClusterSingletonProxySettings.create(system).withRole("compute");
+            system.actorOf(ClusterSingletonProxy.props("/user/statsService",
+                    proxySettings), "statsServiceProxy");
+        }
+
+    }
 }

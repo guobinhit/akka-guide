@@ -4,50 +4,50 @@ import java.io.Serializable;
 
 public interface StatsMessages {
 
-  public static class StatsJob implements Serializable {
-    private final String text;
+    public static class StatsJob implements Serializable {
+        private final String text;
 
-    public StatsJob(String text) {
-      this.text = text;
+        public StatsJob(String text) {
+            this.text = text;
+        }
+
+        public String getText() {
+            return text;
+        }
     }
 
-    public String getText() {
-      return text;
-    }
-  }
+    public static class StatsResult implements Serializable {
+        private final double meanWordLength;
 
-  public static class StatsResult implements Serializable {
-    private final double meanWordLength;
+        public StatsResult(double meanWordLength) {
+            this.meanWordLength = meanWordLength;
+        }
 
-    public StatsResult(double meanWordLength) {
-      this.meanWordLength = meanWordLength;
-    }
+        public double getMeanWordLength() {
+            return meanWordLength;
+        }
 
-    public double getMeanWordLength() {
-      return meanWordLength;
-    }
-
-    @Override
-    public String toString() {
-      return "meanWordLength: " + meanWordLength;
-    }
-  }
-
-  public static class JobFailed implements Serializable {
-    private final String reason;
-
-    public JobFailed(String reason) {
-      this.reason = reason;
+        @Override
+        public String toString() {
+            return "meanWordLength: " + meanWordLength;
+        }
     }
 
-    public String getReason() {
-      return reason;
-    }
+    public static class JobFailed implements Serializable {
+        private final String reason;
 
-    @Override
-    public String toString() {
-      return "JobFailed(" + reason + ")";
+        public JobFailed(String reason) {
+            this.reason = reason;
+        }
+
+        public String getReason() {
+            return reason;
+        }
+
+        @Override
+        public String toString() {
+            return "JobFailed(" + reason + ")";
+        }
     }
-  }
 
 }
