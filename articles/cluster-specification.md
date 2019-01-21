@@ -1,7 +1,6 @@
 # 集群规范
 > **注释**：本文描述了 Akka 集群的设计概念。
 
-@[toc]
 ## 简介
 Akka 集群（`Cluster`）提供了一种容错的、分散的、基于点对点（`peer-to-peer`）的集群成员（`membership`）服务，不存在单点故障或单点瓶颈。它使用`Gossip`协议和自动故障检测器（`failure detector`）来实现这一点。
 

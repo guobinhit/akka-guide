@@ -1,8 +1,6 @@
 # 集群的使用方法
 > **注释**：本文描述了如何使用 Akka 集群。
 
-@[toc]
-
 有关 Akka 集群概念的介绍，请参阅「[集群规范](https://doc.akka.io/docs/akka/current/common/cluster.html)」。
 
 Akka 集群的核心是集群成员（`cluster membership`），以跟踪哪些节点是集群的一部分以及它们的健康状况。
