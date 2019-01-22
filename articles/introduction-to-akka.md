@@ -14,13 +14,13 @@ Akka 对 Actor 模型的使用提供了一个抽象级别，使得编写正确�
 通过学习 Akka 以及如何使用 Actor 模型，你将能够熟练的使用大量的工具集，这些工具可以在统一的编程模型中解决困难的分布式/并行系统问题，在统一的编程模型中，所有东西都紧密且高效地结合在一起。
 
 ## 如何开始？
-如果这是你第一次体验 Akka，我们建议你从运行一个简单的 Hello World 项目开始。有关下载和运行 Hello World 示例的说明，请参阅「[快速入门指南](https://blog.csdn.net/qq_35246620/article/details/86430266)」。快速入门指南将引导你完成示例代码，其中介绍了如何定义 Actor 系统、Actor 和消息，以及如何使用测试模块和日志。在 30 分钟内，你应该能够运行 Hello World 示例并了解它是如何构造的。
+如果这是你第一次体验 Akka，我们建议你从运行一个简单的 Hello World 项目开始。有关下载和运行 Hello World 示例的说明，请参阅「[快速入门指南](https://github.com/guobinhit/akka-guide/blob/master/articles/qucikstart-akka-java.md)」。快速入门指南将引导你完成示例代码，其中介绍了如何定义 Actor 系统、Actor 和消息，以及如何使用测试模块和日志。在 30 分钟内，你应该能够运行 Hello World 示例并了解它是如何构造的。
 
 本入门指南提供了更高级别的信息，它涵盖了为什么 Actor 模型适合现代分布式系统的需要，并且包括一个有助于进一步了解 Akka 的教程。这些主题包括：
 
-- [为什么现代系统需要新的编程模型](https://blog.csdn.net/qq_35246620/article/details/86476859)
--  [Actor 模型如何满足现代分布式系统的需求](https://blog.csdn.net/qq_35246620/article/details/86488507)
--  [Akka 库和模块概述](https://blog.csdn.net/qq_35246620/article/details/86488507)
+- [为什么现代系统需要新的编程模型](https://github.com/guobinhit/akka-guide/blob/master/articles/actors-motivation.md)
+- [Actor 模型如何满足现代分布式系统的需求](https://github.com/guobinhit/akka-guide/blob/master/articles/actor-intro.md)
+- [Akka 库和模块概述](https://github.com/guobinhit/akka-guide/blob/master/articles/modules.md)
 - 一个基于 Hello World 示例的「[更复杂的例子](https://doc.akka.io/docs/akka/current/guide/tutorial.html)」以说明常见的 Akka 模式。
 
 

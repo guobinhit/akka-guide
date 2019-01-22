@@ -63,13 +63,13 @@ $ gradle run
 ## Hello World 都做了什么？
 正如你在控制台输出中看到的，该示例输出了一些问候语。让我们看看运行时都发生了什么。
 
-![mainclass-actorsystem](https://img-blog.csdnimg.cn/20190113190557656.png)
+![mainclass-actorsystem](https://github.com/guobinhit/akka-guide/blob/master/images/qucikstart-akka-java/mainclass-actorsystem.png)
 
 首先，主函数`main`创建了一个`akka.actor.ActorSystem`，它是一个运行`Actors`的容器。接下来，它创建了三个`Greeter Actor`实例和一个`Printer Actor`实例。
 
 然后，该示例将消息发送给`Greeter Actor`实例，后者在内部存储消息。最后，发送给`Greeter Actor`的指令消息触发它们向`Printer Actor`发送消息，`Printer Actor`将消息输出到控制台：
 
-![mainclass-hhgp](https://img-blog.csdnimg.cn/20190113190625928.png)
+![mainclass-hhgp](https://github.com/guobinhit/akka-guide/blob/master/images/qucikstart-akka-java/mainclass-hhgp.png)
 
 Akka 对 Actors 和异步消息传递的使用带来了一系列好处。大家可以考虑一下都带来了什么好处？
 
@@ -698,7 +698,7 @@ JetBrains 的 IntelliJ 是 Java/Scala 社区中领先的 IDE 之一，它对 Akk
 
 类似地运行应用程序，我们右击文件`src/main/java/com/lightbend/akka/sample/HelloAkka.java`，并选择`Run 'HelloAkka.main()'`。
 
-有关更多详细信息，请参阅「[运行应用程序](##运行应用程序)」部分。
+有关更多详细信息，请参阅「[运行应用程序](#运行应用程序)」部分。
 
 想要进一步了解 IntelliJ IDEA，可以参阅「[史上最简单的 IntelliJ IDEA 教程](https://github.com/guobinhit/intellij-idea-tutorial)」系列文章。
 
