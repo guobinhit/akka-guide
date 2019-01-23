@@ -5,6 +5,7 @@ Akka 是一个用 Scala 编写的库，用于在 JVM 平台上简化编写可容
 ## 快速入门指南
 
 - [快速入门 Akka Java 指南](https://github.com/guobinhit/akka-guide/blob/master/articles/qucikstart-akka-java.md)
+- [快速入门 Akka Scala 指南](https://github.com/guobinhit/akka-guide/blob/master/articles/qucikstart-akka-scala.md)
 
 ## 目录
 
@@ -13,8 +14,8 @@ Akka 是一个用 Scala 编写的库，用于在 JVM 平台上简化编写可容
   - [Akka 简介](https://github.com/guobinhit/akka-guide/blob/master/articles/introduction-to-akka.md) 
   - [为什么现代系统需要新的编程模型](https://github.com/guobinhit/akka-guide/blob/master/articles/actors-motivation.md) 
   - [Actor 模型如何满足现代分布式系统的需求](https://github.com/guobinhit/akka-guide/blob/master/articles/actor-intro.md)
-  - [Akka 库和模块概述](https://blog.csdn.net/qq_35246620/article/details/86488507) 
-  - [Akka 应用程序示例简介](https://blog.csdn.net/qq_35246620/article/details/86495572)
+  - [Akka 库和模块概述](https://github.com/guobinhit/akka-guide/blob/master/articles/modules.md) 
+  - [Akka 应用程序示例简介](https://github.com/guobinhit/akka-guide/blob/master/articles/tutorial.md)
   - [第 1 部分: Actor 的体系结构](https://blog.csdn.net/qq_35246620/article/details/86496208)
   - [第 2 部分: 创建第一个 Actor](https://blog.csdn.net/qq_35246620/article/details/86505966)
   - [第 3 部分: 使用设备 Actors](https://blog.csdn.net/qq_35246620/article/details/86506386)

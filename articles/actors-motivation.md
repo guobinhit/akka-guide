@@ -14,15 +14,15 @@ OOP 的核心之一是封装。封装意味着不能直接从外部访问对象�
 
 当我们分析 OOP 运行时行为时，有时会绘制一个消息序列图，显示方法调用的交互。例如：
 
-![object123-1](https://img-blog.csdnimg.cn/20190114155820620.png)
+![object123-1](https://github.com/guobinhit/akka-guide/blob/master/images/actors-motivation/object123-1.png)
 
 不幸的是，上面的图表并不能准确地表示实例在执行期间的生命周期。实际上，一个线程执行所有这些调用，不变量的强制执行发生在调用该方法的同一个线程上。使用执行线程更新图表，如下所示：
 
-![object123-2](https://img-blog.csdnimg.cn/20190114160135208.png)
+![object123-2](https://github.com/guobinhit/akka-guide/blob/master/images/actors-motivation/object123-2.png)
 
 当你试图对多个线程所发生的事情进行建模时，这种说明的意义就变得清晰了。突然间，我们画得很整齐的图表变得不合适了。我们可以尝试演示多个线程访问同一实例：
 
-![object123-3](https://img-blog.csdnimg.cn/20190114160347426.png)
+![object123-3](https://github.com/guobinhit/akka-guide/blob/master/images/actors-motivation/object123-3.png)
 
 如上图所示，在这一部分中，两个线程进入同一个方法。不幸的是，对象的封装模型不能保证该部分中发生的事情。两个调用的指令可以以任意方式交错，这样就消除了在两个线程之间没有某种协调的情况下保持不变的希望。现在，假设这个问题是由多个线程的存在造成的。
 
@@ -41,11 +41,11 @@ OOP 的核心之一是封装。封装意味着不能直接从外部访问对象�
 
 在面向对象语言中，我们通常很少考虑线程或线性执行路径。我们通常将系统设想为一个对象实例网络，这些对象实例对方法调用作出反应，修改其内部状态，然后通过方法调用相互通信，从而推动整个应用程序状态前进：
 
-![object-interact-1](https://img-blog.csdnimg.cn/20190114162225213.png)
+![object-interact-1](https://github.com/guobinhit/akka-guide/blob/master/images/actors-motivation/object-interact-1.png)
 
 但是，在多线程分布式环境中，实际发生的情况是线程通过以下方法调用“遍历”对象实例网络。因此，线程才是真正推动执行的因素：
 
-![object-interact-2](https://img-blog.csdnimg.cn/20190114162249827.png)
+![object-interact-2](https://github.com/guobinhit/akka-guide/blob/master/images/actors-motivation/object-interact-2.png)
 
 **总结**：
 
@@ -73,7 +73,7 @@ OOP 的核心之一是封装。封装意味着不能直接从外部访问对象�
 
 第一个问题是，如何通知“调用者”任务的完成？但是，当一个任务因异常而失败时，会出现一个更严重的问题。异常传播到哪里？它将传播到工作线程的异常处理程序，完全忽略实际的“调用者”是谁：
 
-![main-worker-thread](https://img-blog.csdnimg.cn/20190114165824708.png)
+![main-worker-thread](https://github.com/guobinhit/akka-guide/blob/master/images/actors-motivation/main-worker-thread.png)
 
 这是一个严重的问题。工作线程（`worker thread`）如何处理这种情况？它可能无法解决问题，因为它通常忽略了失败任务的目的。“调用者”线程需要以某种方式得到通知，但是没有调用栈来释放异常。失败通知只能通过一个侧通道（`side-channel`）完成，例如，将错误代码放在“调用者”线程预期结果应该在的地方。如果此通知不到位，则“调用者”永远不会收到失败通知，任务将丢失！**这与网络系统的工作方式惊人地相似，在这种情况下，消息/请求可能会丢失/失败，而没有任何通知**。
 
