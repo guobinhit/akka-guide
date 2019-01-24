@@ -25,9 +25,9 @@ libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.19"
 ## Akka 的 Actor 层级
 Akka 的 Actor 总是属于父 Actor。通常，您可以通过调用`getContext().actorOf()`来创建 Actor。与创建一个“独立的（`freestanding`）” Actor 不同，这会将新 Actor 作为一个子节点注入到已经存在的树中：创建 Actor 的 Actor 成为新创建的子 Actor 的父级。你可能会问，你创造的第一个 Actor 的父节点是谁？
 
-如下图所示，所有的 Actors 都有一个共同的父节点，即用户监督者（`the user guardian`）。可以使用`system.actorOf()`在当前 Actor 下创建新的 Actor 实例。正如我们在「[快速入门 Akka Java 指南](https://blog.csdn.net/qq_35246620/article/details/86430266)」中介绍的那样，创建 Actor 将返回一个有效的 URL 引用。例如，如果我们用`system.actorOf(…, "someActor")`创建一个名为`someActor`的 Actor，它的引用将包括路径`/user/someActor`。
+如下图所示，所有的 Actors 都有一个共同的父节点，即用户监督者（`the user guardian`）。可以使用`system.actorOf()`在当前 Actor 下创建新的 Actor 实例。正如我们在「[快速入门 Akka Java 指南](https://github.com/guobinhit/akka-guide/blob/master/articles/qucikstart-akka-java.md)」中介绍的那样，创建 Actor 将返回一个有效的 URL 引用。例如，如果我们用`system.actorOf(…, "someActor")`创建一个名为`someActor`的 Actor，它的引用将包括路径`/user/someActor`。
 
-![Part 1: Actor Architecture](https://img-blog.csdnimg.cn/20190115174250135.png)
+![Part 1: Actor Architecture](https://github.com/guobinhit/akka-guide/blob/master/images/akka-guide-part1/actor-hierarchy.png)
 
 事实上，在你在代码中创建 Actor 之前，Akka 已经在系统中创建了三个 Actor 。这些内置的 Actor 的名字包含`guardian`，因为他们监督他们所在路径下的每一个子 Actor。监督者 Actor 包括：
 
@@ -274,4 +274,4 @@ java.lang.Exception: I failed!
 **英文原文链接**：[Part 1: Actor Architecture](https://doc.akka.io/docs/akka/current/guide/tutorial_1.html).
 
 ----------
-———— ☆☆☆ —— [返回 -> Akka 中文指南 <- 目录](https://blog.csdn.net/qq_35246620/article/details/86293353) —— ☆☆☆ ————
+———— ☆☆☆ —— [返回 -> Akka 中文指南 <- 目录](https://github.com/guobinhit/akka-guide/blob/master/README.md) —— ☆☆☆ ————

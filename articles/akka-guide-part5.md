@@ -733,7 +733,7 @@ public void testCollectTemperaturesFromAllActiveDevices() {
 ## 下一步是什么？
 要继续你的 Akka 之旅，我们建议：
 
-- 开始用 Akka 构建你自己的应用程序，如果你陷入困境的话，希望你能参与到我们的「[社区](https://akka.io/get-involved/?_ga=2.246739844.143890763.1547711014-367153478.1547175682)」中，寻求帮助。
+- 开始用 Akka 构建你自己的应用程序，如果你陷入困境的话，希望你能参与到我们的「[社区](https://akka.io/get-involved/)」中，寻求帮助。
 - 如果你想了解更多的背景知识，请阅读参考文件的其余部分，并查看一些关于 Akka 的「[书籍和视频](https://doc.akka.io/docs/akka/current/additional/books.html)」。
 
 要从本指南获得完整的应用程序，你可能需要提供 UI 或 API。为此，我们建议你查看以下技术，看看哪些适合你：
@@ -748,4 +748,4 @@ is a HTTP server and client library, making it possible to publish and consume H
 **英文原文链接**：[Part 5: Querying Device Groups](https://doc.akka.io/docs/akka/current/guide/tutorial_5.html).
 
 ----------
-———— ☆☆☆ —— [返回 -> Akka 中文指南 <- 目录](https://blog.csdn.net/qq_35246620/article/details/86293353) —— ☆☆☆ ————
+———— ☆☆☆ —— [返回 -> Akka 中文指南 <- 目录](https://github.com/guobinhit/akka-guide/blob/master/README.md) —— ☆☆☆ ————

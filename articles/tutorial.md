@@ -18,7 +18,7 @@
 
 下图说明了示例应用程序体系结构。因为我们对每个传感器设备的状态感兴趣，所以我们将把设备建模为 Actors。正在运行的应用程序将根据需要创建尽可能多的设备 Actors 和设备组实例。
 
-![device-user](https://github.com/guobinhit/akka-guide/tree/master/images/tutorial/device-user.png)
+![device-user](https://github.com/guobinhit/akka-guide/blob/master/images/tutorial/device-user.png)
 
 ## 在本教程中你将学到什么？
 

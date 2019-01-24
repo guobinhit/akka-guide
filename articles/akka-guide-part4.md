@@ -1,4 +1,4 @@
-# 第 3 部分: 使用设备 Actors
+# 第 4 部分: 使用设备组
 ## 依赖
 在你项目中添加如下依赖：
 
@@ -20,257 +20,102 @@ libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.19"
 ```
 
 ## 简介
-在前面的主题中，我们解释了如何在大范围（`in the large`）内查看 Actor 系统，也就是说，如何表示组件，如何在层次结构中排列 Actor。在这一部分中，我们将通过实现设备 Actor 来在小范围（`in the small`）内观察 Actor。
+让我们仔细看看用例所需的主要功能。在用于监测家庭温度的完整物联网系统中，将设备传感器连接到系统的步骤可能如下：
 
-如果我们处理对象，我们通常将 API 设计为接口，由实际实现来填充抽象方法集合。在 Actor 的世界里，协议取代了接口。虽然在编程语言中无法将一般协议形式化，但是我们可以组成它们最基本的元素，消息。因此，我们将从识别我们要发送给设备 Actor 的消息开始。
+ 1. 家庭中的传感器设备通过某种协议进行连接。
+ 2. 管理网络连接的组件接受连接。
+ 3. 传感器提供其组和设备 ID，以便在系统的设备管理器组件中注册。
+ 4. 设备管理器组件通过查找或创建负责保持传感器状态的 Actor 来处理注册。
+ 5. Actor 以一种确认（`acknowledgement`）回应，暴露其`ActorRef`。
+ 6. 网络组件现在使用`ActorRef`在传感器和设备 Actor 之间进行通信，而不需要经过设备管理器。
 
-通常，消息分为类别或模式。通过识别这些模式，你将发现在它们之间进行选择和实现变得更加容易。第一个示例演示“请求-响应（`request-respond`）”消息模式。
+步骤 1 和 2 发生在教程系统的边界之外。在本章中，我们将开始处理步骤 3 - 6，并创建传感器在系统中注册和与 Actor 通信的方法。但首先，我们有另一个体系结构决策——我们应该使用多少个层次的 Actor 来表示设备组和设备传感器？
 
-## 识别设备的消息
-设备 Actor 的任务很简单：
+Akka 程序员面临的主要设计挑战之一是为 Actor 选择最佳的粒度。在实践中，根据 Actor 之间交互的特点，通常有几种有效的方法来组织系统。例如，在我们的用例中，可能有一个 Actor 维护所有的组和设备——或许可以使用哈希表（`hash maps`）。对于每个跟踪同一个家中所有设备状态的组来说，有一个 Actor 也是合理的。
 
-- 收集温度测量值
-- 当被询问时，报告上次测量的温度
+以下指导原则可以帮助我们选择最合适的 Actor 层次结构：
 
-然而，设备可能在没有立即进行温度测量的情况下启动。因此，我们需要考虑温度不存在的情况。这还允许我们在不存在写入部分的时候测试 Actor 的查询部分，因为设备 Actor 可以报告空结果。
+- 一般来说，更倾向于更大的粒度。引入比需要更多的细粒度 Actor 会导致比它解决的问题更多的问题。
+- 当系统需要时添加更细的粒度：
+  - 更高的并发性。
+  - 有许多状态的 Actors 之间的复杂交互。在下一章中，我们将看到一个很好的例子。
+  - 足够多的状态，划分为较小的 Actor 是有意义地。
+  - 多重无关责任。使用不同的 Actor 可以使单个 Actor 失败并恢复，而对其他的 Actor 影响很小。
 
-从设备 Actor 获取当前温度的协议很简单。Actor：
+## 设备管理器层次结构
 
-- 等待当前温度的请求。
-- 对请求作出响应，并答复：
-  - 包含当前温度，或者
-  - 指示温度尚不可用。
+考虑到上一节中概述的原则，我们将设备管理器组件建模为具有三个级别的 Actor 树：
 
-我们需要两条消息，一条用于请求，一条用于回复。我们的第一次尝试可能如下：
+- 顶级监督者 Actor 表示设备的系统组件。它也是查找和创建设备组和设备 Actor 的入口点。
+- 在下一个级别，每个组 Actor 都监督设备 Actor 使用同一个组 ID。它们还提供服务，例如查询组中所有可用设备的温度读数。
+- 设备 Actor 管理与实际设备传感器的所有交互，例如存储温度读数。
 
-```java
-public static final class ReadTemperature {
-}
+![device-manager](https://github.com/guobinhit/akka-guide/blob/master/images/akka-guide-part4/device-manager.png)
 
-public static final class RespondTemperature {
-  final Optional<Double> value;
+我们选择这三层架构的原因如下：
 
-  public RespondTemperature(Optional<Double> value) {
-    this.value = value;
-  }
-}
-```
-这两条消息似乎涵盖了所需的功能。但是，我们选择的方法必须考虑到应用程序的分布式性质。虽然本地 JVM 上的 Actor 通信的基本机制与远程 Actor 通信的基本机制相同，但我们需要记住以下几点：
+- 划分组为单独的 Actors：
+  - 隔离组中发生的故障。如果一个 Actor 管理所有设备组，则一个组中导致重新启动的错误将清除组的状态，否则这些组不会出现故障。
+  - 简化了查询属于一个组的所有设备的问题。每个组 Actor 只包含与其组相关的状态。
+  - 提高系统的并行性。因为每个组都有一个专用的 Actor，所以它们可以并发运行，我们可以并发查询多个组。
+- 将传感器建模为单个设备 Actor：
+  - 将一个设备 Actor 的故障与组中的其他设备隔离开来。
+  - 增加收集温度读数的平行度。来自不同传感器的网络连接直接与各自的设备 Actor 通信，从而减少了争用点。
 
-- 因为网络链路带宽和消息大小等因素的存在，本地和远程消息在传递延迟方面会有明显的差异。
-- 可靠性是一个问题，因为远程消息发送需要更多的步骤，这意味着更多的步骤可能出错。
-- 本地发送将在同一个 JVM 中传递对消息的引用，而对发送的底层对象没有任何限制，而远程传输将限制消息的大小。
+定义了设备体系结构后，我们就可以开始研究注册传感器的协议了。
 
-此外，当在同一个 JVM 中发送时，如果一个 Actor 在处理消息时由于编程错误而失败，则效果与处理消息时由于远程主机崩溃而导致远程网络请求失败的效果相同。尽管在这两种情况下，服务会在一段时间后恢复（Actor 由其监督者重新启动，主机由操作员或监控系统重新启动），但在崩溃期间，单个请求会丢失。因此，你的 Actor 代码发送的每一条信息都可能丢失，这是一个安全的、悲观的赌注。
+## 注册协议
 
-但是如果进一步理解协议灵活性的需求，它将有助于考虑 Akka 消息订阅和消息传递的安全保证。Akka 为消息发送提供以下行为：
+作为第一步，我们需要设计协议来注册一个设备，以及创建负责它的组和设备 Actor。此协议将由`DeviceManager`组件本身提供，因为它是唯一已知且预先可用的 Actor：设备组和设备 Actor 是按需创建的。
 
-- 至多发送一次消息，即无保证发送；
-- 按“发送方、接收方”对维护消息顺序。
+更详细地看一下注册，我们可以概述必要的功能：
 
-以下各节更详细地讨论了此行为：
+- 当`DeviceManager`接收到具有组和设备 ID 的请求时：
+  - 如果管理器已经有了设备组的 Actor，那么它会将请求转发给它。
+  - 否则，它会创建一个新的设备组 Actor，然后转发请求。
+- `DeviceGroup` Actor 接收为给定设备注册 Actor 的请求：
+  - 如果组已经有设备的 Actor，则组 Actor 将请求转发给设备 Actor。
+  - 否则，设备组 Actor 首先创建设备 Actor，然后转发请求。
+- 设备 Actor 接收请求并向原始发送者发送确认。由于设备 Actor 确认接收（而不是组 Actor），传感器现在将有`ActorRef`，可以直接向其 Actor 发送消息。
 
-- [消息传递](##消息传递)
-- [消息序列](##消息序列)
-
-### 消息传递
-消息子系统提供的传递语义通常分为以下类别：
-
-- 至多一次传递：`At-most-once delivery`，每一条消息都是传递零次或一次；在更因果关系的术语中，这意味着消息可能会丢失，但永远不会重复。
-- 至少一次传递：`At-least-once delivery`，可能多次尝试传递每条消息，直到至少一条成功；同样，在更具因果关系的术语中，这意味着消息可能重复，但永远不会丢失。
-- 恰好一次传递：`Exactly-once delivery`，每条消息只给收件人传递一次；消息既不能丢失，也不能重复。
-
-第一种“至多一次传递”是 Akka 使用的方式，它是最廉价也是性能最好的方式。它具有最小的实现开销，因为它可以以一种“即发即弃（`fire-and-forget`）”的方式完成，而不需要将状态保持在发送端或传输机制中。第二个，“至少一次传递”，需要重试以抵消传输损失。这增加了在发送端保持状态和在接收端具有确认机制的开销。“恰好一次传递”最为昂贵，并且会导致最差的性能：除了“至少一次传递”所增加的开销之外，它还要求将状态保留在接收端，以便筛选出重复的传递。
-
-在 Actor 系统中，我们需要确切含义——即在哪一点上，系统认为消息传递完成：
-
- 1. 消息何时在网络上发送？
- 2. 目标 Actor 的主机何时接收消息？
- 3. 消息何时被放入目标 Actor 的邮箱？
- 4. 消息目标 Actor 何时开始处理消息？
- 5. 目标 Actor 何时成功处理完消息？
-
-大多数声称保证传递的框架和协议实际上提供了类似于第 4 点和第 5 点的内容。虽然这听起来很合理，但它真的有用吗？要理解其含义，请考虑一个简单、实用的示例：用户尝试下单，而我们希望只有当订单数据库中的磁盘上实际存在订单信息后，才说订单已成功处理。
-
-如果我们依赖消息的成功处理，那么一旦订单提交给负责验证它、处理它并将其放入数据库的内部 API，Actor 就会报告成功。不幸的是，在调用 API 之后，可能会立即发生以下任何情况：
-
-- 主机可能崩溃。
-- 反序列化可能失败。
-- 验证可能失败。
-- 数据库可能不可用。
-- 可能发生编程错误。
-
-这说明传递的保证（`guarantee of delivery`）不会转化为域级别的保证（`domain level guarantee`）。我们只希望在订单被实际完全处理和持久化后报告成功。**唯一能够报告成功的实体是应用程序本身，因为只有它对所需的域保证最了解**。没有一个通用的框架能够找出一个特定领域的细节，以及在该领域中什么被认为是成功的。
-
-在这个特定的例子中，我们只希望在数据库成功写入之后就发出成功的信号，在这里数据库确认订单现在已安全存储。基于这些原因，Akka 解除了对应用程序本身的保证责任，即你必须自己使用 Akka 提供的工具来实现这些保证。这使你能够完全控制你想要提供的保证。现在，让我们考虑一下 Akka 提供的消息序列，它可以很容易地解释应用程序逻辑。
-
-### 消息序列
-在 Akka 中 ，对于一对给定的 Actors，直接从第一个 Actor 发送到第二个 Actor 的消息不会被无序接收。该词直接强调，此保证仅在与`tell`运算符直接发送到最终目的地时适用，而在使用中介时不适用。
-
-如果：
-
-- Actor A1 向 A2 发送消息`M1`、`M2`和`M3`。
-- Actor A3 向 A2 发送消息`M4`、`M5`和`M6`。
-
-这意味着，对于 Akka 信息：
-
-- 如果`M1`传递，则必须在`M2`和`M3`之前传递。
-- 如果`M2`传递，则必须在`M3`之前传递。
-- 如果`M4`传递，则必须在`M5`和`M6`之前传递。
-- 如果`M5`传递，则必须在`M6`之前传递。
-- A2 可以看到 A1 的消息与 A3 的消息交织在一起。
-- 由于没有保证的传递，任何消息都可能丢失，即不能到达 A2。
-
-这些保证实现了一个良好的平衡：让一个 Actor 发送的消息有序到达，便于构建易于推理的系统，而另一方面，允许不同 Actor 发送的消息交错到达，则为 Actor 系统的有效实现提供了足够的自由度。
-
-有关消息传递保证的详细信息，请参阅「[参考页](https://doc.akka.io/docs/akka/current/general/message-delivery-reliability.html)」。
-
-## 增加设备消息的灵活性
-
-我们的第一个查询协议是正确的，但没有考虑分布式应用程序的执行。如果我们想在查询设备 Actor 的 Actor 中实现重发（因为请求超时），或者如果我们想查询多个 Actor，我们需要能够关联请求和响应。因此，我们在消息中再添加一个字段，这样请求者就可以提供一个 ID（我们将在稍后的步骤中将此代码添加到我们的应用程序中）：
+我们将用来传递注册请求及其确认的消息有一个简单的定义：
 
 ```java
-public static final class ReadTemperature {
-  final long requestId;
+public static final class RequestTrackDevice {
+  public final String groupId;
+  public final String deviceId;
 
-  public ReadTemperature(long requestId) {
-    this.requestId = requestId;
-  }
-}
-
-public static final class RespondTemperature {
-  final long requestId;
-  final Optional<Double> value;
-
-  public RespondTemperature(long requestId, Optional<Double> value) {
-    this.requestId = requestId;
-    this.value = value;
-  }
-}
-```
-## 定义设备 Actor 及其读取协议
-
-正如我们在`Hello World`示例中了解到的，每个 Actor 都定义了它接受的消息类型。我们的设备 Actor 有责任为给定查询的响应使用相同的 ID 参数，这将使它看起来像下面这样。
-
-```java
-import java.util.Optional;
-
-import akka.actor.AbstractActor;
-import akka.actor.Props;
-import akka.event.Logging;
-import akka.event.LoggingAdapter;
-
-class Device extends AbstractActor {
-  private final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
-
-  final String groupId;
-
-  final String deviceId;
-
-  public Device(String groupId, String deviceId) {
+  public RequestTrackDevice(String groupId, String deviceId) {
     this.groupId = groupId;
     this.deviceId = deviceId;
   }
+}
 
-  public static Props props(String groupId, String deviceId) {
-    return Props.create(Device.class, () -> new Device(groupId, deviceId));
-  }
-
-  public static final class ReadTemperature {
-    final long requestId;
-
-    public ReadTemperature(long requestId) {
-      this.requestId = requestId;
-    }
-  }
-
-  public static final class RespondTemperature {
-    final long requestId;
-    final Optional<Double> value;
-
-    public RespondTemperature(long requestId, Optional<Double> value) {
-      this.requestId = requestId;
-      this.value = value;
-    }
-  }
-
-  Optional<Double> lastTemperatureReading = Optional.empty();
-
-  @Override
-  public void preStart() {
-    log.info("Device actor {}-{} started", groupId, deviceId);
-  }
-
-  @Override
-  public void postStop() {
-    log.info("Device actor {}-{} stopped", groupId, deviceId);
-  }
-
-  @Override
-  public Receive createReceive() {
-    return receiveBuilder()
-            .match(ReadTemperature.class, r -> {
-              getSender().tell(new RespondTemperature(r.requestId, lastTemperatureReading), getSelf());
-            })
-            .build();
-  }
+public static final class DeviceRegistered {
 }
 ```
-在上述代码中需要注意：
+在这种情况下，我们在消息中没有包含请求 ID 字段。由于注册只发生一次，当组件将系统连接到某个网络协议时，ID 并不重要。但是，包含请求 ID 通常是一种最佳实践。
 
-- 静态方法定义了如何构造`Device` Actor。`props`参数包括设备及其所属组的 ID，稍后我们将使用该 ID。
-- 这个类包含了我们先前讨论过的消息的定义。
-- 在`Device`类中，`lastTemperatureReading`的值最初设置为`Optional.empty()`，在查询的时候，Actor 将报告它。
+现在，我们将从头开始实现该协议。在实践中，自顶向下和自下而上的方法都可以工作，但是在我们的例子中，我们从自下而上的方法中获益，因为它允许我们立即为新特性编写测试，而不需要模拟出稍后需要构建的部分。
 
-## 测试 Actor
+## 向设备 Actor 添加注册支持
 
-基于上面的简单 Actor，我们可以编写一个简单的测试。您可以在此处的「[快速入门指南测试示例](https://developer.lightbend.com/guides/akka-quickstart-java/testing-actors.html)」中检查 Actor 测试的完整示例。你将在这里找到一个关于如何完全设置 Actor 测试的示例，以便正确地运行它。
+在我们的层次结构的底部是`Device` Actor。他们在注册过程中的工作很简单：回复注册请求并向发送者确认。对于带有不匹配的组或设备 ID 的请求，添加一个保护措施也是明智的。
 
-在项目的测试目录中，将以下代码添加到`DeviceTest.java`文件中。
+我们假设注册消息发送者的 ID 保留在上层。我们将在下一节向你展示如何实现这一点。
 
-您可以通过`mvn test`或`sbt`命令来运行此测试代码。
+设备 Actor 的注册代码如下所示：
 
 ```java
-@Test
-public void testReplyWithEmptyReadingIfNoTemperatureIsKnown() {
-  TestKit probe = new TestKit(system);
-  ActorRef deviceActor = system.actorOf(Device.props("group", "device"));
-  deviceActor.tell(new Device.ReadTemperature(42L), probe.getRef());
-  Device.RespondTemperature response = probe.expectMsgClass(Device.RespondTemperature.class);
-  assertEquals(42L, response.requestId);
-  assertEquals(Optional.empty(), response.value);
-}
-```
-
-现在，当 Actor 收到来自传感器的信息时  它需要一种方法来改变温度的状态。
-
-## 添加写入协议
-
-写入协议（`write protocol`）的目的是在 Actor 收到包含温度的消息时更新`currentTemperature`字段。同样，将写协议定义为一个非常简单的消息是很有吸引力的，比如：
-
-```java
-public static final class RecordTemperature {
-  final double value;
-
-  public RecordTemperature(double value) {
-    this.value = value;
-  }
-}
-```
-但是，这种方法没有考虑到记录温度消息的发送者永远无法确定消息是否被处理。我们已经看到，Akka 不保证这些消息的传递，并将其留给应用程序以提供成功通知。在我们的情况下，一旦我们更新了上次的温度记录，例如`TemperatureRecorded`，我们希望向发送方发送确认。就像在温度查询和响应的情况下一样，最好包含一个 ID 字段以提供最大的灵活性。
-
-## 具有读写消息的 Actor
-
-将读写协议放在一起，设备 Actor 如下所示：
-
-```java
-import java.util.Optional;
-
 import akka.actor.AbstractActor;
-import akka.actor.AbstractActor.Receive;
 import akka.actor.Props;
 import akka.event.Logging;
 import akka.event.LoggingAdapter;
+
+import jdocs.tutorial_4.DeviceManager.DeviceRegistered;
+import jdocs.tutorial_4.DeviceManager.RequestTrackDevice;
+
+import java.util.Optional;
 
 public class Device extends AbstractActor {
   private final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
@@ -339,6 +184,16 @@ public class Device extends AbstractActor {
   @Override
   public Receive createReceive() {
     return receiveBuilder()
+            .match(RequestTrackDevice.class, r -> {
+              if (this.groupId.equals(r.groupId) && this.deviceId.equals(r.deviceId)) {
+                getSender().tell(new DeviceRegistered(), getSelf());
+              } else {
+                log.warning(
+                        "Ignoring TrackDevice request for {}-{}.This actor is responsible for {}-{}.",
+                        r.groupId, r.deviceId, this.groupId, this.deviceId
+                );
+              }
+            })
             .match(RecordTemperature.class, r -> {
               log.info("Recorded temperature reading {} with {}", r.value, r.requestId);
               lastTemperatureReading = Optional.of(r.value);
@@ -351,39 +206,459 @@ public class Device extends AbstractActor {
   }
 }
 ```
-我们现在还应该编写一个新的测试用例，同时使用读/查询和写/记录功能：
+我们现在可以编写两个新的测试用例，一个成功注册，另一个在 ID 不匹配时测试用例：
 
 ```java
 @Test
-public void testReplyWithLatestTemperatureReading() {
+public void testReplyToRegistrationRequests() {
   TestKit probe = new TestKit(system);
   ActorRef deviceActor = system.actorOf(Device.props("group", "device"));
 
-  deviceActor.tell(new Device.RecordTemperature(1L, 24.0), probe.getRef());
+  deviceActor.tell(new DeviceManager.RequestTrackDevice("group", "device"), probe.getRef());
+  probe.expectMsgClass(DeviceManager.DeviceRegistered.class);
+  assertEquals(deviceActor, probe.getLastSender());
+}
+
+@Test
+public void testIgnoreWrongRegistrationRequests() {
+  TestKit probe = new TestKit(system);
+  ActorRef deviceActor = system.actorOf(Device.props("group", "device"));
+
+  deviceActor.tell(new DeviceManager.RequestTrackDevice("wrongGroup", "device"), probe.getRef());
+  probe.expectNoMessage();
+
+  deviceActor.tell(new DeviceManager.RequestTrackDevice("group", "wrongDevice"), probe.getRef());
+  probe.expectNoMessage();
+}
+```
+- **注释**：我们使用了`TestKit`中的`expectNoMsg()`帮助者方法。此断言等待到定义的时间限制，如果在此期间收到任何消息，则会失败。如果在等待期间未收到任何消息，则断言通过。通常最好将这些超时保持在较低的水平（但不要太低），因为它们会增加大量的测试执行时间。
+
+## 向设备组 Actor 添加注册支持
+我们已经完成了设备级别的注册支持，现在我们必须在组级别实现它。当涉及到注册时，组 Actor 有更多的工作要做，包括：
+
+- 通过将注册请求转发给现有设备 Actor 或创建新 Actor 并转发消息来处理注册请求。
+- 跟踪组中存在哪些设备 Actor，并在停止时将其从组中删除。
+
+### 处理注册请求
+设备组 Actor 必须将请求转发给现有的子 Actor，或者应该创建一个子 Actor。要通过设备 ID 查找子 Actor，我们将使用`Map<String, ActorRef>`。
+
+我们还希望保留请求的原始发送者的 ID，以便设备 Actor 可以直接回复。这可以通过使用`forward`而不是`tell`运算符来实现。两者之间的唯一区别是，`forward`保留原始发送者，而`tell`将发送者设置为当前 Actor。就像我们的设备 Actor 一样，我们确保不响应错误的组 ID。将以下内容添加到你的源文件中：
+
+```java
+public class DeviceGroup extends AbstractActor {
+  private final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
+
+  final String groupId;
+
+  public DeviceGroup(String groupId) {
+    this.groupId = groupId;
+  }
+
+  public static Props props(String groupId) {
+    return Props.create(DeviceGroup.class, () -> new DeviceGroup(groupId));
+  }
+
+  final Map<String, ActorRef> deviceIdToActor = new HashMap<>();
+
+  @Override
+  public void preStart() {
+    log.info("DeviceGroup {} started", groupId);
+  }
+
+  @Override
+  public void postStop() {
+    log.info("DeviceGroup {} stopped", groupId);
+  }
+
+  private void onTrackDevice(DeviceManager.RequestTrackDevice trackMsg) {
+    if (this.groupId.equals(trackMsg.groupId)) {
+      ActorRef deviceActor = deviceIdToActor.get(trackMsg.deviceId);
+      if (deviceActor != null) {
+        deviceActor.forward(trackMsg, getContext());
+      } else {
+        log.info("Creating device actor for {}", trackMsg.deviceId);
+        deviceActor = getContext().actorOf(Device.props(groupId, trackMsg.deviceId), "device-" + trackMsg.deviceId);
+        deviceIdToActor.put(trackMsg.deviceId, deviceActor);
+        deviceActor.forward(trackMsg, getContext());
+      }
+    } else {
+      log.warning(
+              "Ignoring TrackDevice request for {}. This actor is responsible for {}.",
+              groupId, this.groupId
+      );
+    }
+  }
+
+  @Override
+  public Receive createReceive() {
+    return receiveBuilder()
+            .match(DeviceManager.RequestTrackDevice.class, this::onTrackDevice)
+            .build();
+  }
+}
+```
+正如我们对设备所做的那样，我们测试了这个新功能。我们还测试了两个不同 ID 返回的 Actor 实际上是不同的，我们还尝试记录每个设备的温度读数，以查看 Actor 是否有响应。
+
+```java
+@Test
+public void testRegisterDeviceActor() {
+  TestKit probe = new TestKit(system);
+  ActorRef groupActor = system.actorOf(DeviceGroup.props("group"));
+
+  groupActor.tell(new DeviceManager.RequestTrackDevice("group", "device1"), probe.getRef());
+  probe.expectMsgClass(DeviceManager.DeviceRegistered.class);
+  ActorRef deviceActor1 = probe.getLastSender();
+
+  groupActor.tell(new DeviceManager.RequestTrackDevice("group", "device2"), probe.getRef());
+  probe.expectMsgClass(DeviceManager.DeviceRegistered.class);
+  ActorRef deviceActor2 = probe.getLastSender();
+  assertNotEquals(deviceActor1, deviceActor2);
+
+  // Check that the device actors are working
+  deviceActor1.tell(new Device.RecordTemperature(0L, 1.0), probe.getRef());
+  assertEquals(0L, probe.expectMsgClass(Device.TemperatureRecorded.class).requestId);
+  deviceActor2.tell(new Device.RecordTemperature(1L, 2.0), probe.getRef());
   assertEquals(1L, probe.expectMsgClass(Device.TemperatureRecorded.class).requestId);
+}
 
-  deviceActor.tell(new Device.ReadTemperature(2L), probe.getRef());
-  Device.RespondTemperature response1 = probe.expectMsgClass(Device.RespondTemperature.class);
-  assertEquals(2L, response1.requestId);
-  assertEquals(Optional.of(24.0), response1.value);
+@Test
+public void testIgnoreRequestsForWrongGroupId() {
+  TestKit probe = new TestKit(system);
+  ActorRef groupActor = system.actorOf(DeviceGroup.props("group"));
 
-  deviceActor.tell(new Device.RecordTemperature(3L, 55.0), probe.getRef());
-  assertEquals(3L, probe.expectMsgClass(Device.TemperatureRecorded.class).requestId);
+  groupActor.tell(new DeviceManager.RequestTrackDevice("wrongGroup", "device1"), probe.getRef());
+  probe.expectNoMessage();
+}
+```
+如果注册请求已经存在设备 Actor，我们希望使用现有的 Actor 而不是新的 Actor。我们尚未对此进行测试，因此需要修复此问题：
 
-  deviceActor.tell(new Device.ReadTemperature(4L), probe.getRef());
-  Device.RespondTemperature response2 = probe.expectMsgClass(Device.RespondTemperature.class);
-  assertEquals(4L, response2.requestId);
-  assertEquals(Optional.of(55.0), response2.value);
+```java
+@Test
+public void testReturnSameActorForSameDeviceId() {
+  TestKit probe = new TestKit(system);
+  ActorRef groupActor = system.actorOf(DeviceGroup.props("group"));
+
+  groupActor.tell(new DeviceManager.RequestTrackDevice("group", "device1"), probe.getRef());
+  probe.expectMsgClass(DeviceManager.DeviceRegistered.class);
+  ActorRef deviceActor1 = probe.getLastSender();
+
+  groupActor.tell(new DeviceManager.RequestTrackDevice("group", "device1"), probe.getRef());
+  probe.expectMsgClass(DeviceManager.DeviceRegistered.class);
+  ActorRef deviceActor2 = probe.getLastSender();
+  assertEquals(deviceActor1, deviceActor2);
 }
 ```
 
+### 跟踪组内的设备 Actor
+到目前为止，我们已经实现了在组中注册设备 Actor 的逻辑。然而，设备增增减减（`come and go`），所以我们需要一种方法从`Map<String, ActorRef>`中删除设备 Actor。我们假设当一个设备被删除时，它对应的设备 Actor 被停止。正如我们前面讨论的，监督只处理错误场景——而不是优雅的停止。因此，当其中一个设备 Actor 停止时，我们需要通知其父 Actor。
+
+Akka 提供了一个死亡观察功能（`Death Watch feature`），允许一个 Actor 观察另一个 Actor，并在另一个 Actor 被停止时得到通知。与监督者不同的是，观察（`watching`）并不局限于父子关系，任何 Actor 只要知道`ActorRef`就可以观察其他 Actor。在被观察的 Actor 停止后，观察者接收一条`Terminated(actorRef)`消息，该消息还包含对被观察的 Actor 的引用。观察者可以显式处理此消息，也可以失败并出现`DeathPactException`。如果在被观察的 Actor 被停止后，该 Actor 不能再履行自己的职责，则后者很有用。在我们的例子中，组应该在一个设备停止后继续工作，所以我们需要处理`Terminated(actorRef)`消息。
+
+我们的设备组 Actor 需要包括以下功能：
+
+- 当新设备 Actor 被创建时开始观察（`watching`）。
+- 当通知指示设备已停止时，从映射`Map<String, ActorRef>`中删除设备 Actor。
+
+不幸的是，`Terminated`的消息只包含子 Actor 的`ActorRef`。我们需要 Actor 的 ID 将其从现有设备到设备的 Actor 映射中删除。为了能够进行删除，我们需要引入另一个占位符`Map<ActorRef, String>`，它允许我们找到与给定`ActorRef`对应的设备 ID。
+
+添加用于标识 Actor 的功能后，代码如下：
+
+```java
+public class DeviceGroup extends AbstractActor {
+  private final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
+
+  final String groupId;
+
+  public DeviceGroup(String groupId) {
+    this.groupId = groupId;
+  }
+
+  public static Props props(String groupId) {
+    return Props.create(DeviceGroup.class, () -> new DeviceGroup(groupId));
+  }
+
+  final Map<String, ActorRef> deviceIdToActor = new HashMap<>();
+  final Map<ActorRef, String> actorToDeviceId = new HashMap<>();
+
+  @Override
+  public void preStart() {
+    log.info("DeviceGroup {} started", groupId);
+  }
+
+  @Override
+  public void postStop() {
+    log.info("DeviceGroup {} stopped", groupId);
+  }
+
+  private void onTrackDevice(DeviceManager.RequestTrackDevice trackMsg) {
+    if (this.groupId.equals(trackMsg.groupId)) {
+      ActorRef deviceActor = deviceIdToActor.get(trackMsg.deviceId);
+      if (deviceActor != null) {
+        deviceActor.forward(trackMsg, getContext());
+      } else {
+        log.info("Creating device actor for {}", trackMsg.deviceId);
+        deviceActor = getContext().actorOf(Device.props(groupId, trackMsg.deviceId), "device-" + trackMsg.deviceId);
+        getContext().watch(deviceActor);
+        actorToDeviceId.put(deviceActor, trackMsg.deviceId);
+        deviceIdToActor.put(trackMsg.deviceId, deviceActor);
+        deviceActor.forward(trackMsg, getContext());
+      }
+    } else {
+      log.warning(
+              "Ignoring TrackDevice request for {}. This actor is responsible for {}.",
+              groupId, this.groupId
+      );
+    }
+  }
+
+  private void onTerminated(Terminated t) {
+    ActorRef deviceActor = t.getActor();
+    String deviceId = actorToDeviceId.get(deviceActor);
+    log.info("Device actor for {} has been terminated", deviceId);
+    actorToDeviceId.remove(deviceActor);
+    deviceIdToActor.remove(deviceId);
+  }
+
+  @Override
+  public Receive createReceive() {
+    return receiveBuilder()
+            .match(DeviceManager.RequestTrackDevice.class, this::onTrackDevice)
+            .match(Terminated.class, this::onTerminated)
+            .build();
+  }
+}
+```
+到目前为止，我们还没有办法获得组设备 Actor 跟踪的设备，因此，我们还不能测试我们的新功能。为了使其可测试，我们添加了一个新的查询功能（消息`RequestDeviceList`），其中列出了当前活动的设备 ID：
+
+```java
+public class DeviceGroup extends AbstractActor {
+  private final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
+
+  final String groupId;
+
+  public DeviceGroup(String groupId) {
+    this.groupId = groupId;
+  }
+
+  public static Props props(String groupId) {
+    return Props.create(DeviceGroup.class, () -> new DeviceGroup(groupId));
+  }
+
+  public static final class RequestDeviceList {
+    final long requestId;
+
+    public RequestDeviceList(long requestId) {
+      this.requestId = requestId;
+    }
+  }
+
+  public static final class ReplyDeviceList {
+    final long requestId;
+    final Set<String> ids;
+
+    public ReplyDeviceList(long requestId, Set<String> ids) {
+      this.requestId = requestId;
+      this.ids = ids;
+    }
+  }
+
+  final Map<String, ActorRef> deviceIdToActor = new HashMap<>();
+  final Map<ActorRef, String> actorToDeviceId = new HashMap<>();
+
+  @Override
+  public void preStart() {
+    log.info("DeviceGroup {} started", groupId);
+  }
+
+  @Override
+  public void postStop() {
+    log.info("DeviceGroup {} stopped", groupId);
+  }
+
+  private void onTrackDevice(DeviceManager.RequestTrackDevice trackMsg) {
+    if (this.groupId.equals(trackMsg.groupId)) {
+      ActorRef deviceActor = deviceIdToActor.get(trackMsg.deviceId);
+      if (deviceActor != null) {
+        deviceActor.forward(trackMsg, getContext());
+      } else {
+        log.info("Creating device actor for {}", trackMsg.deviceId);
+        deviceActor = getContext().actorOf(Device.props(groupId, trackMsg.deviceId), "device-" + trackMsg.deviceId);
+        getContext().watch(deviceActor);
+        actorToDeviceId.put(deviceActor, trackMsg.deviceId);
+        deviceIdToActor.put(trackMsg.deviceId, deviceActor);
+        deviceActor.forward(trackMsg, getContext());
+      }
+    } else {
+      log.warning(
+              "Ignoring TrackDevice request for {}. This actor is responsible for {}.",
+              groupId, this.groupId
+      );
+    }
+  }
+
+  private void onDeviceList(RequestDeviceList r) {
+    getSender().tell(new ReplyDeviceList(r.requestId, deviceIdToActor.keySet()), getSelf());
+  }
+
+  private void onTerminated(Terminated t) {
+    ActorRef deviceActor = t.getActor();
+    String deviceId = actorToDeviceId.get(deviceActor);
+    log.info("Device actor for {} has been terminated", deviceId);
+    actorToDeviceId.remove(deviceActor);
+    deviceIdToActor.remove(deviceId);
+  }
+
+  @Override
+  public Receive createReceive() {
+    return receiveBuilder()
+            .match(DeviceManager.RequestTrackDevice.class, this::onTrackDevice)
+            .match(RequestDeviceList.class, this::onDeviceList)
+            .match(Terminated.class, this::onTerminated)
+            .build();
+  }
+}
+```
+我们几乎准备好测试设备的移除功能了。但是，我们仍然需要以下功能：
+
+- 为了通过我们的测试用例停止一个设备 Actor。从外面看，任何 Actor 都可以通过发送一个特殊的内置消息`PoisonPill`来停止，该消息指示 Actor 停止。
+- 为了在设备 Actor 停止后得到通知。我们也可以使用`Death Watch`功能观察设备。`TestKit`有两条消息，我们可以很容易地使用`watch()`来观察指定的 Actor，使用`expectTerminated`来断言被观察的 Actor 已被终止。
+
+我们现在再添加两个测试用例。在第一个测试中，我们测试在添加了一些设备之后，是否能返回正确的 ID 列表。第二个测试用例确保在设备 Actor 停止后正确删除设备 ID：
+
+```java
+@Test
+public void testListActiveDevices() {
+  TestKit probe = new TestKit(system);
+  ActorRef groupActor = system.actorOf(DeviceGroup.props("group"));
+
+  groupActor.tell(new DeviceManager.RequestTrackDevice("group", "device1"), probe.getRef());
+  probe.expectMsgClass(DeviceManager.DeviceRegistered.class);
+
+  groupActor.tell(new DeviceManager.RequestTrackDevice("group", "device2"), probe.getRef());
+  probe.expectMsgClass(DeviceManager.DeviceRegistered.class);
+
+  groupActor.tell(new DeviceGroup.RequestDeviceList(0L), probe.getRef());
+  DeviceGroup.ReplyDeviceList reply = probe.expectMsgClass(DeviceGroup.ReplyDeviceList.class);
+  assertEquals(0L, reply.requestId);
+  assertEquals(Stream.of("device1", "device2").collect(Collectors.toSet()), reply.ids);
+}
+
+@Test
+public void testListActiveDevicesAfterOneShutsDown() {
+  TestKit probe = new TestKit(system);
+  ActorRef groupActor = system.actorOf(DeviceGroup.props("group"));
+
+  groupActor.tell(new DeviceManager.RequestTrackDevice("group", "device1"), probe.getRef());
+  probe.expectMsgClass(DeviceManager.DeviceRegistered.class);
+  ActorRef toShutDown = probe.getLastSender();
+
+  groupActor.tell(new DeviceManager.RequestTrackDevice("group", "device2"), probe.getRef());
+  probe.expectMsgClass(DeviceManager.DeviceRegistered.class);
+
+  groupActor.tell(new DeviceGroup.RequestDeviceList(0L), probe.getRef());
+  DeviceGroup.ReplyDeviceList reply = probe.expectMsgClass(DeviceGroup.ReplyDeviceList.class);
+  assertEquals(0L, reply.requestId);
+  assertEquals(Stream.of("device1", "device2").collect(Collectors.toSet()), reply.ids);
+
+  probe.watch(toShutDown);
+  toShutDown.tell(PoisonPill.getInstance(), ActorRef.noSender());
+  probe.expectTerminated(toShutDown);
+
+  // using awaitAssert to retry because it might take longer for the groupActor
+  // to see the Terminated, that order is undefined
+  probe.awaitAssert(() -> {
+    groupActor.tell(new DeviceGroup.RequestDeviceList(1L), probe.getRef());
+    DeviceGroup.ReplyDeviceList r =
+      probe.expectMsgClass(DeviceGroup.ReplyDeviceList.class);
+    assertEquals(1L, r.requestId);
+    assertEquals(Stream.of("device2").collect(Collectors.toSet()), r.ids);
+    return null;
+  });
+}
+```
+## 创建设备管理器 Actors
+
+在我们的层次结构中，我们需要在`DeviceManager`源文件中为设备管理器组件创建入口点。此 Actor 与设备组 Actor 非常相似，但创建的是设备组 Actor 而不是设备 Actor：
+
+```java
+public class DeviceManager extends AbstractActor {
+  private final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
+
+  public static Props props() {
+    return Props.create(DeviceManager.class, DeviceManager::new);
+  }
+
+  public static final class RequestTrackDevice {
+    public final String groupId;
+    public final String deviceId;
+
+    public RequestTrackDevice(String groupId, String deviceId) {
+      this.groupId = groupId;
+      this.deviceId = deviceId;
+    }
+  }
+
+  public static final class DeviceRegistered {
+  }
+
+  final Map<String, ActorRef> groupIdToActor = new HashMap<>();
+  final Map<ActorRef, String> actorToGroupId = new HashMap<>();
+
+  @Override
+  public void preStart() {
+    log.info("DeviceManager started");
+  }
+
+  @Override
+  public void postStop() {
+    log.info("DeviceManager stopped");
+  }
+
+  private void onTrackDevice(RequestTrackDevice trackMsg) {
+    String groupId = trackMsg.groupId;
+    ActorRef ref = groupIdToActor.get(groupId);
+    if (ref != null) {
+      ref.forward(trackMsg, getContext());
+    } else {
+      log.info("Creating device group actor for {}", groupId);
+      ActorRef groupActor = getContext().actorOf(DeviceGroup.props(groupId), "group-" + groupId);
+      getContext().watch(groupActor);
+      groupActor.forward(trackMsg, getContext());
+      groupIdToActor.put(groupId, groupActor);
+      actorToGroupId.put(groupActor, groupId);
+    }
+  }
+
+  private void onTerminated(Terminated t) {
+    ActorRef groupActor = t.getActor();
+    String groupId = actorToGroupId.get(groupActor);
+    log.info("Device group actor for {} has been terminated", groupId);
+    actorToGroupId.remove(groupActor);
+    groupIdToActor.remove(groupId);
+  }
+
+  public Receive createReceive() {
+    return receiveBuilder()
+            .match(RequestTrackDevice.class, this::onTrackDevice)
+            .match(Terminated.class, this::onTerminated)
+            .build();
+  }
+}
+```
+我们将设备管理器的测试留给你作为练习，因为它与我们为设备组 Actor 编写的测试非常相似。
+
 ## 下一步是什么？
+我们现在有了一个用于注册和跟踪设备以及记录测量值的分层组件。我们已经了解了如何实现不同类型的对话模式，例如：
 
-到目前为止，我们已经开始设计我们的总体架构，并且我们编写了第一个直接对应于域的 Actor。我们现在必须创建负责维护设备组和设备 Actor 本身的组件。
+- 请求响应（`Request-respond`），用于温度记录。
+- 代理响应（`Delegate-respond`），用于设备注册。
+- 创建监视终止（`Create-watch-terminate`），用于将组和设备 Actor 创建为子级。
+
+在下一章中，我们将介绍组查询功能，这将建立一种新的分散收集（`scatter-gather`）对话模式。特别是，我们将实现允许用户查询属于一个组的所有设备的状态的功能。
 
 ----------
 
-**英文原文链接**：[Part 3: Working with Device Actors](https://doc.akka.io/docs/akka/current/guide/tutorial_3.html).
+**英文原文链接**：[Part 4: Working with Device Groups](https://doc.akka.io/docs/akka/current/guide/tutorial_4.html).
 
 ----------
-———— ☆☆☆ —— [返回 -> Akka 中文指南 <- 目录](https://blog.csdn.net/qq_35246620/article/details/86293353) —— ☆☆☆ ————
+———— ☆☆☆ —— [返回 -> Akka 中文指南 <- 目录](https://github.com/guobinhit/akka-guide/blob/master/README.md) —— ☆☆☆ ————
