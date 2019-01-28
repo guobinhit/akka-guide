@@ -104,10 +104,10 @@ Accrual Failure Detector 将监控和解释分离。这使得它们适用于更�
 
 - **State Diagram for the Member States** (`akka.cluster.allow-weakly-up-members=off`)
 
-![member-status-off](https://img-blog.csdnimg.cn/20190118101038563.png)
+![member-status-off](https://github.com/guobinhit/akka-guide/blob/master/images/cluster-specification/member-states-off.png)
 - **State Diagram for the Member States** (`akka.cluster.allow-weakly-up-members=on`)
 
-![member-status-on](https://img-blog.csdnimg.cn/20190118101226207.png)
+![member-status-on](https://github.com/guobinhit/akka-guide/blob/master/images/cluster-specification/member-states-on.png)
 ### Member States
 - `joining`：联接集群时的瞬态状态
 - `weakly up` ：网络分裂时的瞬时状态，仅当`akka.cluster.allow-weakly-up-members=on`开启时，才会出现此状态

@@ -1,7 +1,7 @@
 # 集群的使用方法
 > **注释**：本文描述了如何使用 Akka 集群。
 
-有关 Akka 集群概念的介绍，请参阅「[集群规范](https://doc.akka.io/docs/akka/current/common/cluster.html)」。
+有关 Akka 集群概念的介绍，请参阅「[集群规范](https://github.com/guobinhit/akka-guide/blob/master/articles/cluster-specification.md)」。
 
 Akka 集群的核心是集群成员（`cluster membership`），以跟踪哪些节点是集群的一部分以及它们的健康状况。
 
@@ -566,11 +566,17 @@ phi = -log10(1 - F(timeSinceLastHeartbeat))
 低阈值容易产生许多误报，但可以确保在发生真正的崩溃时快速检测。相反，高阈值产生的错误更少，但需要更多的时间来检测实际的崩溃。默认阈值为`8`，适用于大多数情况。然而，在云环境中，例如 Amazon EC2，为了解决此类平台上有时出现的网络问题，其值可以增加到`12`。
 
 下图说明了自上一次心跳以来，`phi`是如何随着时间的增加而增加的：
-![heartbeat-interval-1](https://img-blog.csdnimg.cn/20190119094706349.png)
+
+![heartbeat-interval-1](https://github.com/guobinhit/akka-guide/blob/master/images/cluster-usage/heartbeat-interval-1.png)
+
 根据历史到达时间的平均值和标准偏差计算`phi`。前面的图表是`200ms`标准偏差的一个例子。如果心跳到达时的偏差较小，曲线会变陡，即可以更快地确定故障。对于`100ms`的标准偏差，曲线看起来是这样的：
-![heartbeat-interval-2](https://img-blog.csdnimg.cn/20190119094721344.png)
+
+![heartbeat-interval-2](https://github.com/guobinhit/akka-guide/blob/master/images/cluster-usage/heartbeat-interval-2.png)
+
 为了能够承受突发的异常情况，例如垃圾收集暂停和短暂的网络故障，故障检测器可以通过`akka.cluster.failure-detector.acceptable-heartbeat-pause`配置一个边界值。你可能需要根据你的环境调整此配置。这就是配置`acceptable-heartbeat-pause`为`3s`的可接受心跳暂停的曲线：
-![heartbeat-interval-3](https://img-blog.csdnimg.cn/20190119094745452.png)
+
+![heartbeat-interval-3](https://github.com/guobinhit/akka-guide/blob/master/images/cluster-usage/heartbeat-interval-3.png)
+
 Death Watch 对集群中的节点使用集群故障检测器，即它检测网络故障和 JVM 崩溃，并优雅地终止被监视的 Actor。当无法访问的群集节点被关闭和删除时，Death Watch 将向监视 Actor 生成`Terminated`消息。
 
 如果在系统加载时遇到可疑的误报，你应该为集群 Actor 定义一个单独的调度程序，如「[Cluster Dispatcher](https://doc.akka.io/docs/akka/current/cluster-usage.html#cluster-dispatcher)」中所述的。
@@ -684,4 +690,4 @@ akka.cluster.configuration-compatibility-check.checkers {
 **英文原文链接**：[Cluster Usage](https://doc.akka.io/docs/akka/current/cluster-usage.html).
 
 ----------
-———— ☆☆☆ —— [返回 -> Akka 中文指南 <- 目录](https://blog.csdn.net/qq_35246620/article/details/86293353) —— ☆☆☆ ————
+———— ☆☆☆ —— [返回 -> Akka 中文指南 <- 目录](https://github.com/guobinhit/akka-guide/blob/master/README.md) —— ☆☆☆ ————
