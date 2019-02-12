@@ -22,6 +22,7 @@ Akka 实现了一种称为“父母监督（`parental supervision`）”的特�
 
 ## 顶级监督者
 ![top-level-supervisors](https://github.com/guobinhit/akka-guide/blob/master/images/supervision/top-level-supervisors.png)
+
 一个 Actor 系统在创建过程中至少会启动三个 Actor，如上图所示。有关 Actor 路径的详细信息，请参阅「[Top-Level Scopes for Actor Paths](https://doc.akka.io/docs/akka/current/general/addressing.html#toplevel-paths)」。
 
 - `/user`: The Guardian Actor，最可能与之交互的 Actor 是所有用户创建的 Actor 的父级，守护者名为`/user`。使用`system.actorOf()`创建的 Actor 是此 Actor 的子级。这意味着当这个守护者终止时，系统中的所有正常 Actor 也将关闭。这也意味着守护者的监管策略决定了顶级（`top-level`）正常 Actor 的监督方式。自 Akka 2.1 开始，可以使用`akka.actor.guardian-supervisor-strategy`来配置它，该设置采用了一个`SupervisorStrategyConfigurator`的完全限定类名。当守护者升级失败（`escalates a failure`）时，根守护者（`root guardian`）的响应将会终止守护者，这实际上将关闭整个 Actor 系统。
