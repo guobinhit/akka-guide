@@ -27,6 +27,10 @@ Akka 是一个用 Scala 编写的库，用于在 JVM 平台上简化编写可容
   - [什么是 Actor？](https://github.com/guobinhit/akka-guide/blob/master/articles/actors.md)
   - [监督和监控](https://github.com/guobinhit/akka-guide/blob/master/articles/supervision.md)
   - [Actor 引用、路径和地址](https://github.com/guobinhit/akka-guide/blob/master/articles/addressing.md)
+  - [位置透明](https://github.com/guobinhit/akka-guide/blob/master/articles/remoting.md)
+  - [Akka 和 Java 内存模型](https://github.com/guobinhit/akka-guide/blob/master/articles/jmm.md)
+  - [消息传递可靠性](https://doc.akka.io/docs/akka/current/general/message-delivery-reliability.html)
+  - [配置](https://github.com/guobinhit/akka-guide/blob/master/articles/configuration.md)
 - [Actors](https://github.com/guobinhit/akka-guide/blob/master/README.md)
 - [Akka Typed](https://doc.akka.io/docs/akka/current/general/index.html)
 - [集群](https://github.com/guobinhit/akka-guide/blob/master/README.md)
@@ -41,6 +45,7 @@ Akka 是一个用 Scala 编写的库，用于在 JVM 平台上简化编写可容
 - [HowTo: Common Patterns](https://doc.akka.io/docs/akka/current/general/index.html)
 - [项目信息](https://doc.akka.io/docs/akka/current/project/index.html)
 - [附加信息](https://doc.akka.io/docs/akka/current/additional/index.html)
+
 
 
 ----------

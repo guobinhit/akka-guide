@@ -129,7 +129,7 @@ context.actorSelection("../*") ! msg
 
 像这样为 Actor 构建名称空间的需要源于一个中心且非常简单的设计目标：层次结构中的所有内容都是一个 Actor，并且所有 Actor 都以相同的方式工作。因此，你不仅可以查找你创建的 Actor，还可以查找系统守护者并向其发送消息（在本例中，它将尽职尽责地丢弃该消息）。这一强有力的原则意味着不需要记住任何怪癖，它使整个系统更加统一和一致。
 
-如果你想更多地了解演员 Actor 的顶层（`top-level`）结构，可见「[The Top-Level Supervisors](https://doc.akka.io/docs/akka/current/general/supervision.html#toplevel-supervisors)」。
+如果你想更多地了解 Actor 的顶层（`top-level`）结构，可见「[The Top-Level Supervisors](https://doc.akka.io/docs/akka/current/general/supervision.html#toplevel-supervisors)」。
 
 
 ----------
