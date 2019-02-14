@@ -61,7 +61,7 @@ Akka 持久化的灵感来自于「[eventsourced](https://github.com/eligosource
 
 关于“事件思考”的另一篇优秀文章是 Randy Shoup 的「[Events As First-Class Citizens](https://hackernoon.com/events-as-first-class-citizens-8633e8479493)」。如果你开始开发基于事件的应用程序，这是一个简短的推荐阅读。
 
-Akka 持久化使用`AbstractPersistentActor`抽象类支持事件源。扩展此类的 Actor 使用持久方法来持久化和处理事件。``AbstractPersistentActor的行为是通过实现`createReceiveRecover`和`createReceive`来定义的。这在下面的示例中进行了演示。
+Akka 持久化使用`AbstractPersistentActor`抽象类支持事件源。扩展此类的 Actor 使用持久方法来持久化和处理事件。`AbstractPersistentActor`的行为是通过实现`createReceiveRecover`和`createReceive`来定义的。这在下面的示例中进行了演示。
 
 ```java
 import akka.actor.ActorRef;
@@ -816,15 +816,563 @@ public Recovery recovery() {
 
 如果 Actor 未处理故障消息，则将为每个传入的故障消息记录默认的警告日志消息。不会对成功消息执行默认操作，但是你可以自由地处理它们，例如，为了删除快照的内存中表示形式，或者在尝试再次保存快照失败的情况下。
 
+## 扩容
+在一个用例中，如果需要的持久性 Actor 的数量高于一个节点的内存中所能容纳的数量，或者弹性很重要，因此如果一个节点崩溃，那么持久性 Actor 很快就会在一个新节点上启动，并且可以恢复操作，那么「[集群分片](https://doc.akka.io/docs/akka/current/cluster-sharding.html)」非常适合将持久性 Actor 通过他们的`id`分散到集群和地址上。
 
+Akka 持久化（`persistence`）是基于单写入（`single-writer`）原则的。对于特定的`persistenceId`，一次只能激活一个`PersistentActor`实例。如果多个实例同时持久化事件，那么这些事件将被交错，并且在重播时可能无法正确解释。集群分片确保数据中心内每个`id`只有一个活动实体（`PersistentActor`）。LightBend 的「[Multi-DC Persistence](https://developer.lightbend.com/docs/akka-commercial-addons/current/persistence-dc/index.html)」支持跨数据中心的双活（`active-active`）持久性实体。
 
+在 Akka 之上构建的「[Lagom](https://www.lagomframework.com/)」框架编码了许多与此相关的最佳实践。有关更多详细信息，请参阅 Lagom 文档中的「[Managing Data Persistence](https://www.lagomframework.com/documentation/current/java/ES_CQRS.html)」和「[Persistent Entity](https://www.lagomframework.com/documentation/current/java/PersistentEntity.html)」。
 
+### 至少一次传递
+要将具有至少一次传递（`at-least-once delivery`）语义的消息发送到目标，可以使用`AbstractPersistentActorWithAtLeastOnceDelivery`，而不是在发送端扩展`AbstractPersistentActor`。当消息在可配置的超时时间内未被确认时，它负责重新发送消息。
 
+发送 Actor 的状态，包括那些已发送但未被接收者确认的消息，必须是持久的，这样它才能在发送 Actor 或 JVM 崩溃后存活下来。`AbstractPersistentActorWithAtLeastOnceDelivery`类本身不持久任何内容。
 
+- **注释**：至少有一次传递意味着原始消息发送顺序并不总是保持不变，并且目标可能接收到重复的消息。该语义与普通`ActorRef`发送操作的语义不匹配：
+  - 至少一次传递
+  - 同一“发送方和接收者”对的消息顺序由于可能的重发而不被保留
+  - 在崩溃和目标 Actor 的重新启动之后，消息仍然被传递给新的 Actor 化身。
+
+这些语义类似于`ActorPath`所表示的含义，因此在传递消息时需要提供路径而不是引用。消息将与 Actor 选择（`selection`）一起发送到路径。
+
+使用`deliver`方法将消息发送到目标。当目标已用确认消息答复时，调用`confirmDelivery`方法。
+
+###  deliver 与 confirmDelivery 的关系
+若要将消息发送到目标路径，请在持久化发送消息的意图之后使用`deliver`方法。
+
+目标 Actor 必须返回确认消息。当发送 Actor 收到此确认消息时，你应该持久化消息已成功传递的事实，然后调用`confirmDelivery`方法。
+
+如果持久性 Actor 当前未恢复，则`deliver`方法将消息发送到目标 Actor。恢复时，将缓冲消息，直到使用`confirmDelivery`确认消息。一旦恢复完成，如果有未确认的未完成消息（在消息重播期间），持久性 Actor 将在发送任何其他消息之前重新发送这些消息。
+
+传递需要`deliveryIdToMessage`函数将提供的`deliveryId`传递到消息中，以便`deliver`和`confirmDelivery`之间的关联成为可能。`deliveryId`必须在传递之间往返。在收到消息后，目标 Actor 会将包装在确认消息中的相同`deliveryId`发送回发送者。然后，发送方将使用它调用`confirmDelivery`方法来完成传递过程。
+
+```java
+class Msg implements Serializable {
+  private static final long serialVersionUID = 1L;
+  public final long deliveryId;
+  public final String s;
+
+  public Msg(long deliveryId, String s) {
+    this.deliveryId = deliveryId;
+    this.s = s;
+  }
+}
+
+class Confirm implements Serializable {
+  private static final long serialVersionUID = 1L;
+  public final long deliveryId;
+
+  public Confirm(long deliveryId) {
+    this.deliveryId = deliveryId;
+  }
+}
+
+class MsgSent implements Serializable {
+  private static final long serialVersionUID = 1L;
+  public final String s;
+
+  public MsgSent(String s) {
+    this.s = s;
+  }
+}
+
+class MsgConfirmed implements Serializable {
+  private static final long serialVersionUID = 1L;
+  public final long deliveryId;
+
+  public MsgConfirmed(long deliveryId) {
+    this.deliveryId = deliveryId;
+  }
+}
+
+class MyPersistentActor extends AbstractPersistentActorWithAtLeastOnceDelivery {
+  private final ActorSelection destination;
+
+  public MyPersistentActor(ActorSelection destination) {
+    this.destination = destination;
+  }
+
+  @Override
+  public String persistenceId() {
+    return "persistence-id";
+  }
+
+  @Override
+  public Receive createReceive() {
+    return receiveBuilder()
+        .match(
+            String.class,
+            s -> {
+              persist(new MsgSent(s), evt -> updateState(evt));
+            })
+        .match(
+            Confirm.class,
+            confirm -> {
+              persist(new MsgConfirmed(confirm.deliveryId), evt -> updateState(evt));
+            })
+        .build();
+  }
+
+  @Override
+  public Receive createReceiveRecover() {
+    return receiveBuilder().match(Object.class, evt -> updateState(evt)).build();
+  }
+
+  void updateState(Object event) {
+    if (event instanceof MsgSent) {
+      final MsgSent evt = (MsgSent) event;
+      deliver(destination, deliveryId -> new Msg(deliveryId, evt.s));
+    } else if (event instanceof MsgConfirmed) {
+      final MsgConfirmed evt = (MsgConfirmed) event;
+      confirmDelivery(evt.deliveryId);
+    }
+  }
+}
+
+class MyDestination extends AbstractActor {
+  @Override
+  public Receive createReceive() {
+    return receiveBuilder()
+        .match(
+            Msg.class,
+            msg -> {
+              // ...
+              getSender().tell(new Confirm(msg.deliveryId), getSelf());
+            })
+        .build();
+  }
+}
+```
+持久化模块生成的`deliveryId`是严格单调递增的序列号，没有间隙。相同的序列用于 Actor 的所有目的地，即当发送到多个目的地时，目的地将看到序列中的间隙。无法使用自定义`deliveryId`。但是，你可以将消息中的自定义关联标识符发送到目标。然后必须在内部`deliveryId`（传递到`deliveryIdToMessage`函数）和自定义关联`id`（传递到消息）之间保留映射。你可以通过将此类映射存储在一个`Map(correlationId -> deliveryId)`中来实现这一点，从该映射中，你可以在消息的接收者用你的自定义关联`id`答复之后，检索要传递到`confirmDelivery`方法的`deliveryId`。
+
+`AbstractPersistentActorWithAtLeastOnceDelivery`类的状态由未确认的消息和序列号组成。它不存储此状态本身。你必须持久化与`PersistentActor`的`deliver`和`confirmDelivery`调用相对应的事件，以便在`PersistentActor`的恢复阶段通过调用相同的方法恢复状态。有时，这些事件可以从其他业务级事件派生，有时必须创建单独的事件。在恢复过程中，`deliver`调用不会发送消息，如果未执行匹配的`confirmDelivery`，则稍后将发送这些消息。
+
+对快照的支持由`getDeliverySnapshot`和`setDeliverySnapshot`提供。`AtLeastOnceDeliverySnapshot`包含完整的传递状态，也包括未确认的消息。如你需要 Actor 状态的其他部分的自定义快照，则还必须包括`AtLeastOnceDeliverySnapshot`。它使用`protobuf`和普通的 Akka 序列化机制进行序列化。最简单的方法是将`AtLeastOnceDeliverySnapshot`的字节作为`blob`包含在自定义快照中。
+
+重新传递尝试之间的间隔由`redeliverInterval`方法定义。可以使用`akka.persistence.at-least-once-delivery.redeliver-interval`配置键配置默认值。方法可以被实现类重写以返回非默认值。
+
+在每次重新传递突发时将发送的最大消息数由`redeliveryBurstLimit`方法定义（突发频率是重新传递间隔的一半）。如果有很多未确认的消息（例如，如果目标 Actor 长时间不可用），这有助于防止同时发送大量的消息。默认值可以使用`akka.persistence.at-least-once-delivery.redelivery-burst-limit`配置键进行配置。方法可以被实现类重写以返回非默认值。
+
+在多次尝试传递之后，至少会向`self`发送一条`AtLeastOnceDelivery.UnconfirmedWarning`消息。重新发送仍将继续，但你可以选择调用`confirmDelivery`以取消重新发送。发出警告前的传送尝试次数由`warnAfterNumberOfUnconfirmedAttempts`方法定义。可以使用`akka.persistence.at-least-once-delivery.warn-after-number-of-unconfirmed-attempts`配置键配置默认值。方法可以被实现类重写以返回非默认值。
+
+`AbstractPersistentActorWithAtLeastOnceDelivery`类将消息保存在内存中，直到确认它们的成功传递为止。允许 Actor 在内存中保留的未确认消息的最大数目由`maxUnconfirmedMessages`方法定义。如果超过此限制，则传递方法将不接受更多的消息，并将引发`AtLeastOnceDelivery.MaxUnconfirmedMessagesExceededException`。可以使用`akka.persistence.at-least-once-delivery.max-unconfirmed-messages`配置键配置默认值。方法可以被实现类重写以返回非默认值。
+
+## 事件适配器
+在使用事件源（`event sourcing`）的长时间运行的项目中，有时需要将数据模型与域模型完全分离。
+
+事件适配器（`Event Adapters`）在以下情况中提供帮助：
+
+- **版本迁移**（`Version Migrations`），存储在版本 1 中的现有事件应“向上转换”为新的版本 2 表示，这样做的过程涉及实际代码，而不仅仅是序列化层的更改。对于这些场景，`toJournal`函数通常是一个标识函数，但是`fromJournal`实现为`v1.Event=>v2.Event`，在`fromJournal`方法中执行必要的映射。这种技术有时在其他 CQRS 库中被称为`upcasting`。
+- **分离域和数据模型**（`Separating Domain and Data models`），由于`EventAdapters`，可以完全分离域模型和用于在日志中持久化数据的模型。例如，你可能希望在域模型中使用`case`类，但是将它们的协议缓冲区（或任何其他二进制序列化格式）计数器部分保留到日志中。可以使用简单的`toJournal:MyModel=>MyDataModel`和`fromJournal:MyDataModel=>MyModel`适配器来实现此功能。
+- **日志专用数据类型**（`Journal Specialized Data Types`），暴露基础日志所理解的数据类型，例如，对于理解 JSON 的数据存储，可以写一个`EventAdapter `的`toJournal:Any=>JSON`，这样日志就可以直接存储 JSON，而不是将对象序列化为其二进制表示。
+
+实现一个`EventAdapter`非常重要：
+
+```java
+class MyEventAdapter implements EventAdapter {
+  @Override
+  public String manifest(Object event) {
+    return ""; // if no manifest needed, return ""
+  }
+
+  @Override
+  public Object toJournal(Object event) {
+    return event; // identity
+  }
+
+  @Override
+  public EventSeq fromJournal(Object event, String manifest) {
+    return EventSeq.single(event); // identity
+  }
+}
+```
+然后，为了在日志中的事件上使用它，必须使用以下配置语法绑定它：
+
+```
+akka.persistence.journal {
+  inmem {
+    event-adapters {
+      tagging        = "docs.persistence.MyTaggingEventAdapter"
+      user-upcasting = "docs.persistence.UserUpcastingEventAdapter"
+      item-upcasting = "docs.persistence.ItemUpcastingEventAdapter"
+    }
+
+    event-adapter-bindings {
+      "docs.persistence.Item"        = tagging
+      "docs.persistence.TaggedEvent" = tagging
+      "docs.persistence.v1.Event"    = [user-upcasting, item-upcasting]
+    }
+  }
+}
+```
+可以将多个适配器（`adapter`）绑定到一个类以进行恢复，在这种情况下，所有绑定适配器的`fromJournal`方法将应用于给定的匹配事件（按照配置中的定义顺序）。由于每个适配器可以返回从`0`到`n`个适配事件（称为`EventSeq`），因此每个适配器都可以调查事件，如果确实需要对其进行适配，则返回相应的事件。在这个过程中没有任何贡献的其他适配器只返回`EventSeq.empty`。然后，在重放过程中，将调整后的事件传递给`PersistentActor`。
+
+- **注释**：有关更高级的模式演化技术，请参阅「[Persistence - Schema Evolution](https://doc.akka.io/docs/akka/current/persistence-schema-evolution.html)」文档。
+
+## 存储插件
+日志和快照存储的存储后端可以插入到 Akka 持久性扩展中。
+
+Akka 社区项目页面提供了持久性日志和快照存储插件的目录，请参阅「[社区插件](https://akka.io/community/)」。
+
+插件可以通过“默认”为所有持久 Actor 的选择，也可以在持久 Actor 定义自己的插件集时“单独”选择。
+
+当持久性 Actor 不重写`journalPluginId`和`snapshotPluginId`方法时，持久性扩展将使用`reference.conf`中配置的“默认”日志和快照存储插件：
+
+```
+akka.persistence.journal.plugin = ""
+akka.persistence.snapshot-store.plugin = ""
+```
+但是，这些条目作为空的`""`提供，需要通过在用户的`application.conf`中的覆盖进行显式的用户配置。有关将消息写入 LevelDB 的日志插件的示例，请参阅「[Local LevelDB](https://doc.akka.io/docs/akka/current/persistence.html#local-leveldb-journal)」。有关将快照作为单个文件写入本地文件系统的快照存储插件的示例，请参阅「[Local snapshot](https://doc.akka.io/docs/akka/current/persistence.html#local-snapshot-store)」。
+
+应用程序可以通过实现插件 API 并通过配置激活插件来提供自己的插件。插件开发需要以下导入：
+
+```java
+import akka.dispatch.Futures;
+import akka.persistence.*;
+import akka.persistence.journal.japi.*;
+import akka.persistence.snapshot.japi.*;
+```
+### 持久性插件的预先初始化
+默认情况下，持久性插件在使用时按需启动。然而，在某些情况下，预先启动某个插件可能会很有好处。为了做到这一点，你应该首先在`akka.extensions`键下添加`akka.persistence.Persistence`。然后，在`akka.persistence.journal.auto-start-journals`和`akka.persistence.snapshot-store.auto-start-snapshot-stores`下指定希望自动启动的插件的`ID`。
+
+例如，如果你希望对 LevelDB 日志插件和本地快照存储插件进行预先初始化，那么你的配置应该如下所示：
+
+```
+akka {
+
+  extensions = [akka.persistence.Persistence]
+
+  persistence {
+
+    journal {
+      plugin = "akka.persistence.journal.leveldb"
+      auto-start-journals = ["akka.persistence.journal.leveldb"]
+    }
+
+    snapshot-store {
+      plugin = "akka.persistence.snapshot-store.local"
+      auto-start-snapshot-stores = ["akka.persistence.snapshot-store.local"]
+    }
+  }
+}
+```
+## 预打包插件
+### 本地 LevelDB 日志
+LevelDB 日志插件配置条目是`akka.persistence.journal.leveldb`。它将消息写入本地 LevelDB 实例。通过定义配置属性启用此插件：
+
+```
+# Path to the journal plugin to be used
+akka.persistence.journal.plugin = "akka.persistence.journal.leveldb"
+```
+基于 LevelDB 的插件还需要以下附加依赖声明：
+
+```xml
+<!-- Maven -->
+<dependency>
+  <groupId>org.fusesource.leveldbjni</groupId>
+  <artifactId>leveldbjni-all</artifactId>
+  <version>1.8</version>
+</dependency>
+
+<!-- Gradle -->
+dependencies {
+  compile group: 'org.fusesource.leveldbjni', name: 'leveldbjni-all', version: '1.8'
+}
+
+<!-- sbt -->
+libraryDependencies += "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8"
+```
+LevelDB 文件的默认位置是当前工作目录中名为`journal`的目录。可以通过配置更改此位置，其中指定的路径可以是相对路径或绝对路径：
+
+```
+akka.persistence.journal.leveldb.dir = "target/journal"
+```
+使用这个插件，每个 Actor 系统运行自己的私有 LevelDB 实例。
+
+LevelDB 的一个特点是，删除操作不会从日志中删除消息，而是为每个已删除的消息添加一个“逻辑删除”。在大量使用日志的情况下，尤其是包括频繁删除的情况下，这可能是一个问题，因为用户可能会发现自己正在处理不断增加的日志大小。为此，LevelDB 提供了一个特殊的功能，通过以下配置开启：
+
+```
+# Number of deleted messages per persistence id that will trigger journal compaction
+akka.persistence.journal.leveldb.compaction-intervals {
+  persistence-id-1 = 100
+  persistence-id-2 = 200
+  # ...
+  persistence-id-N = 1000
+  # use wildcards to match unspecified persistence ids, if any
+  "*" = 250
+}
+```
+### 共享 LevelDB 日记
+一个 LevelDB 实例也可以由多个 Actor 系统（在同一个或不同的节点上）共享。例如，这允许持久 Actor 故障转移到备份节点，并继续从备份节点使用共享日志实例。
+
+- **警告**：共享的 LevelDB 实例是一个单一的故障点，因此只能用于测试目的。
+- **注释**：此插件已被「[Persistence Plugin Proxy](https://doc.akka.io/docs/akka/current/persistence.html#persistence-plugin-proxy)」取代。
+
+通过实例化`SharedLeveldbStore` Actor 可以启动共享 LevelDB 实例。
+
+```java
+final ActorRef store = system.actorOf(Props.create(SharedLeveldbStore.class), "store");
+```
+默认情况下，共享实例将日志消息写入当前工作目录中名为`journal`的本地目录。存储位置可以通过配置进行更改：
+
+```
+akka.persistence.journal.leveldb-shared.store.dir = "target/shared"
+```
+使用共享 LevelDB 存储的 Actor 系统必须激活`akka.persistence.journal.leveldb-shared`插件。
+
+```
+akka.persistence.journal.plugin = "akka.persistence.journal.leveldb-shared"
+```
+
+必须通过插入（远程）`SharedLeveldbStore` Actor 引用来初始化此插件。注入是通过使用 Actor 引用作为参数调用`SharedLeveldbJournal.setStore`方法完成的。
+
+```java
+class SharedStorageUsage extends AbstractActor {
+  @Override
+  public void preStart() throws Exception {
+    String path = "akka.tcp://example@127.0.0.1:2552/user/store";
+    ActorSelection selection = getContext().actorSelection(path);
+    selection.tell(new Identify(1), getSelf());
+  }
+
+  @Override
+  public Receive createReceive() {
+    return receiveBuilder()
+        .match(
+            ActorIdentity.class,
+            ai -> {
+              if (ai.correlationId().equals(1)) {
+                Optional<ActorRef> store = ai.getActorRef();
+                if (store.isPresent()) {
+                  SharedLeveldbJournal.setStore(store.get(), getContext().getSystem());
+                } else {
+                  throw new RuntimeException("Couldn't identify store");
+                }
+              }
+            })
+        .build();
+  }
+}
+```
+内部日志命令（由持久 Actor 发送）被缓冲，直到注入完成。注入是幂等的，即只使用第一次注入。
+
+### 本地快照存储
+本地快照存储（`local snapshot store`）插件配置条目为`akka.persistence.snapshot-store.local`。它将快照文件写入本地文件系统。通过定义配置属性启用此插件：
+
+```
+# Path to the snapshot store plugin to be used
+akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.local"
+```
+默认存储位置是当前工作目录中名为`snapshots`的目录。这可以通过配置进行更改，其中指定的路径可以是相对路径或绝对路径：
+
+```
+akka.persistence.snapshot-store.local.dir = "target/snapshots"
+```
+请注意，不必指定快照存储插件。如果不使用快照，则无需对其进行配置。
+
+### 持久化插件代理
+持久化插件代理（`persistence plugin proxy`）允许跨多个 Actor 系统（在相同或不同节点上）共享日志和快照存储。例如，这允许持久 Actor 故障转移到备份节点，并继续从备份节点使用共享日志实例。代理的工作方式是将所有日志/快照存储消息转发到一个共享的持久性插件实例，因此支持代理插件支持的任何用例。
+
+- **警告**：共享日志/快照存储是单一故障点，因此应仅用于测试目的。
+
+日志和快照存储代理分别通过`akka.persistence.journal.proxy`和`akka.persistence.snapshot-store.proxy`配置条目进行控制。将`target-journal-plugin`或`target-snapshot-store-plugin`键设置为要使用的基础插件（例如：`akka.persistence.journal.leveldb`）。在一个 Actor 系统中，`start-target-journal`和`start-target-snapshot-store`键应设置为`on`，这是将实例化共享持久性插件的系统。接下来，需要告诉代理如何找到共享插件。这可以通过设置`target-journal-address`和`target-snapshot-store-address`配置键来实现，也可以通过编程方式调用`PersistencePluginProxy.setTargetLocation`方法来实现。
+
+- **注释**：当需要扩展时，Akka 会延迟地启动扩展，这包括代理。这意味着为了让代理正常工作，必须实例化目标节点上的持久性插件。这可以通过实例化`PersistencePluginProxyExtension`扩展或调用`PersistencePluginProxy.start`方法来完成。此外，代理持久性插件可以（也应该）使用其原始配置键进行配置。
+
+## 自定义序列化
+快照的序列化和`Persistent`消息的有效负载可以通过 Akka 的序列化基础设施进行配置。例如，如果应用程序想要序列化
+
+- payloads of type MyPayload with a custom MyPayloadSerializer and
+- snapshots of type MySnapshot with a custom MySnapshotSerializer
+
+它必须增加：
+
+```
+akka.actor {
+  serializers {
+    my-payload = "docs.persistence.MyPayloadSerializer"
+    my-snapshot = "docs.persistence.MySnapshotSerializer"
+  }
+  serialization-bindings {
+    "docs.persistence.MyPayload" = my-payload
+    "docs.persistence.MySnapshot" = my-snapshot
+  }
+}
+```
+到应用程序配置。如果未指定，则使用默认序列化程序。
+
+有关更高级的模式演化技术，请参阅「[Persistence - Schema Evolution](https://doc.akka.io/docs/akka/current/persistence-schema-evolution.html)」文档。
+
+## 测试
+
+在 sbt 中使用 LevelDB 默认设置运行测试时，请确保在 sbt 项目中设置`fork := true`。否则，你将看到一个`UnsatisfiedLinkError`。或者，你可以通过设置切换到 LevelDB Java 端口。
+
+```
+akka.persistence.journal.leveldb.native = off
+```
+
+或
+
+```
+akka.persistence.journal.leveldb-shared.store.native = off
+```
+
+在你的 Akka 配置中，LevelDB Java 端口仅用于测试目的。
+
+还要注意的是，对于 LevelDB Java 端口，你将需要以下依赖项：
+
+```xml
+<!-- Maven -->
+<dependency>
+  <groupId>org.iq80.leveldb</groupId>
+  <artifactId>leveldb</artifactId>
+  <version>0.9</version>
+</dependency>
+
+<!-- Gradle -->
+dependencies {
+  compile group: 'org.iq80.leveldb', name: 'leveldb', version: '0.9'
+}
+
+<!-- sbt -->
+libraryDependencies += "org.iq80.leveldb" % "leveldb" % "0.9"
+```
+- **警告**：由于`TestActorRef`具有同步性，因此无法使用它来测试持久性提供的类（即`PersistentActor`和`AtLeastOnceDelivery`）。这些特性需要能够在后台执行异步任务，以便处理与持久性相关的内部事件。当「[测试基于持久性的项目](https://doc.akka.io/docs/akka/current/testing.html#async-integration-testing)」时，总是依赖于使用`TestKit`的异步消息传递。
+
+## 配置
+持久性模块有几个配置属性，请参阅参考「[配置](https://doc.akka.io/docs/akka/current/general/configuration.html#config-akka-persistence)」。
+
+## 多持久性插件配置
+默认情况下，持久性 Actor 将使用在`reference.conf`配置资源的以下部分中配置的“默认”日志和快照存储插件：
+
+```
+# Absolute path to the default journal plugin configuration entry.
+akka.persistence.journal.plugin = "akka.persistence.journal.inmem"
+# Absolute path to the default snapshot store plugin configuration entry.
+akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.local"
+```
+注意，在这种情况下，Actor 只重写`persistenceId`方法：
+
+```java
+abstract class AbstractPersistentActorWithDefaultPlugins extends AbstractPersistentActor {
+  @Override
+  public String persistenceId() {
+    return "123";
+  }
+}
+```
+当持久性 Actor 重写`journalPluginId`和`snapshotPluginId`方法时，Actor 将由这些特定的持久性插件而不是默认值提供服务：
+
+```java
+abstract class AbstractPersistentActorWithOverridePlugins extends AbstractPersistentActor {
+  @Override
+  public String persistenceId() {
+    return "123";
+  }
+
+  // Absolute path to the journal plugin configuration entry in the `reference.conf`
+  @Override
+  public String journalPluginId() {
+    return "akka.persistence.chronicle.journal";
+  }
+
+  // Absolute path to the snapshot store plugin configuration entry in the `reference.conf`
+  @Override
+  public String snapshotPluginId() {
+    return "akka.persistence.chronicle.snapshot-store";
+  }
+}
+```
+请注意，`journalPluginId`和`snapshotPluginId`必须引用正确配置的`reference.conf`插件条目，这些插件具有标准类属性以及特定于这些插件的设置，即：
+
+```
+# Configuration entry for the custom journal plugin, see `journalPluginId`.
+akka.persistence.chronicle.journal {
+  # Standard persistence extension property: provider FQCN.
+  class = "akka.persistence.chronicle.ChronicleSyncJournal"
+  # Custom setting specific for the journal `ChronicleSyncJournal`.
+  folder = $${user.dir}/store/journal
+}
+# Configuration entry for the custom snapshot store plugin, see `snapshotPluginId`.
+akka.persistence.chronicle.snapshot-store {
+  # Standard persistence extension property: provider FQCN.
+  class = "akka.persistence.chronicle.ChronicleSnapshotStore"
+  # Custom setting specific for the snapshot store `ChronicleSnapshotStore`.
+  folder = $${user.dir}/store/snapshot
+}
+```
+
+## 在运行时提供持久性插件配置
+默认情况下，持久性 Actor 将使用在`ActorSystem`创建时加载的配置来创建日志和快照存储插件。
+
+当持久性 Actor 重写`journalPluginConfig`和`snapshotPluginConfig`方法时，Actor 将使用声明的`Config`对象，并对默认配置进行回退（`fallback`）。它允许在运行时动态配置日志和快照存储：
+
+```java
+abstract class AbstractPersistentActorWithRuntimePluginConfig extends AbstractPersistentActor
+    implements RuntimePluginConfig {
+  // Variable that is retrieved at runtime, from an external service for instance.
+  String runtimeDistinction = "foo";
+
+  @Override
+  public String persistenceId() {
+    return "123";
+  }
+
+  // Absolute path to the journal plugin configuration entry in the `reference.conf`
+  @Override
+  public String journalPluginId() {
+    return "journal-plugin-" + runtimeDistinction;
+  }
+
+  // Absolute path to the snapshot store plugin configuration entry in the `reference.conf`
+  @Override
+  public String snapshotPluginId() {
+    return "snapshot-store-plugin-" + runtimeDistinction;
+  }
+
+  // Configuration which contains the journal plugin id defined above
+  @Override
+  public Config journalPluginConfig() {
+    return ConfigFactory.empty()
+        .withValue(
+            "journal-plugin-" + runtimeDistinction,
+            getContext()
+                .getSystem()
+                .settings()
+                .config()
+                .getValue(
+                    "journal-plugin") // or a very different configuration coming from an external
+            // service.
+            );
+  }
+
+  // Configuration which contains the snapshot store plugin id defined above
+  @Override
+  public Config snapshotPluginConfig() {
+    return ConfigFactory.empty()
+        .withValue(
+            "snapshot-plugin-" + runtimeDistinction,
+            getContext()
+                .getSystem()
+                .settings()
+                .config()
+                .getValue(
+                    "snapshot-store-plugin") // or a very different configuration coming from an
+            // external service.
+            );
+  }
+}
+```
+
+## 更多可见
+
+- [Persistent FSM](https://doc.akka.io/docs/akka/current/persistence-fsm.html)
+- [Building a new storage backend](https://doc.akka.io/docs/akka/current/persistence-journals.html)
 
 ----------
 
 **英文原文链接**：[Persistence](https://doc.akka.io/docs/akka/current/persistence.html).
+
 
 ----------
 ———— ☆☆☆ —— [返回 -> Akka 中文指南 <- 目录](https://github.com/guobinhit/akka-guide/blob/master/README.md) —— ☆☆☆ ————
