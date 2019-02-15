@@ -20,12 +20,12 @@ libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.19"
 ```
 
 ## 简介
-使用 Akka 可以让你从为 Actor 系统创建基础设施和编写控制基本行为所需的初级（`low-level`）代码中解脱出来。为了理解这一点，让我们看看你在代码中创建的 Actors 与 Akka 在内部为你创建和管理的 Actor 之间的关系，Actor 的生命周期和失败处理。
+使用 Akka 可以让你从为 Actor 系统创建基础设施和编写控制基本行为所需的初级（`low-level`）代码中解脱出来。为了理解这一点，让我们看看你在代码中创建的 Actor 与 Akka 在内部为你创建和管理的 Actor 之间的关系，Actor 的生命周期和失败处理。
 
 ## Akka 的 Actor 层级
-Akka 的 Actor 总是属于父 Actor。通常，您可以通过调用`getContext().actorOf()`来创建 Actor。与创建一个“独立的（`freestanding`）” Actor 不同，这会将新 Actor 作为一个子节点注入到已经存在的树中：创建 Actor 的 Actor 成为新创建的子 Actor 的父级。你可能会问，你创造的第一个 Actor 的父节点是谁？
+Akka 的 Actor 总是属于父 Actor。通常，你可以通过调用`getContext().actorOf()`来创建 Actor。与创建一个“独立的（`freestanding`）” Actor 不同，这会将新 Actor 作为一个子节点注入到已经存在的树中：创建 Actor 的 Actor 成为新创建的子 Actor 的父级。你可能会问，你创造的第一个 Actor 的父节点是谁？
 
-如下图所示，所有的 Actors 都有一个共同的父节点，即用户监督者（`the user guardian`）。可以使用`system.actorOf()`在当前 Actor 下创建新的 Actor 实例。正如我们在「[快速入门 Akka Java 指南](https://github.com/guobinhit/akka-guide/blob/master/articles/qucikstart-akka-java.md)」中介绍的那样，创建 Actor 将返回一个有效的 URL 引用。例如，如果我们用`system.actorOf(…, "someActor")`创建一个名为`someActor`的 Actor，它的引用将包括路径`/user/someActor`。
+如下图所示，所有的 Actor 都有一个共同的父节点，即用户监督者（`the user guardian`）。可以使用`system.actorOf()`在当前 Actor 下创建新的 Actor 实例。正如我们在「[快速入门 Akka Java 指南](https://github.com/guobinhit/akka-guide/blob/master/articles/qucikstart-akka-java.md)」中介绍的那样，创建 Actor 将返回一个有效的 URL 引用。例如，如果我们用`system.actorOf(…, "someActor")`创建一个名为`someActor`的 Actor，它的引用将包括路径`/user/someActor`。
 
 ![Part 1: Actor Architecture](https://github.com/guobinhit/akka-guide/blob/master/images/akka-guide-part1/actor-hierarchy.png)
 
@@ -96,7 +96,7 @@ Second: Actor[akka://testSystem/user/first-actor/second-actor#-1544706041]
 - 因为第二个 Actor 的引用包含路径`/first-actor/`，这个标识它为第一个 Actor 的子 Actor。
 - Actor 引用的最后一部分，即`#1053618476`或`#-1544706041`是一个在大多数情况下可以忽略的唯一标识符。
 
-既然你了解了 Actor 层次结构的样子，您可能会想：为什么我们需要这个层次结构？它是用来干什么的？
+既然你了解了 Actor 层次结构的样子，你可能会想：为什么我们需要这个层次结构？它是用来干什么的？
 
 层次结构的一个重要作用是安全地管理 Actor 的生命周期。接下来，我们来考虑一下，这些知识如何帮助我们编写更好的代码。
 
@@ -261,9 +261,9 @@ java.lang.Exception: I failed!
         at akka.dispatch.forkjoin.ForkJoinPool.runWorker(ForkJoinPool.java:1979)
         at akka.dispatch.forkjoin.ForkJoinWorkerThread.run(ForkJoinWorkerThread.java:107)
 ```
-我们看到失败后，被监督的 Actor 被停止并立即重新启动。我们还看到一个日志条目，报告处理的异常，在本例中是我们的测试异常。在这个例子中，我们使用了`preStart()`和`postStop()`钩子，这是重启后和重启前默认调用的钩子，因此我们无法区分 Actor 内部是第一次启动还是重启。这通常是正确的做法，重新启动的目的是将 Actor 设置为已知的良好状态，这通常意味着一个干净的开始阶段。实际上，在重新启动时，调用的是`preRestart()`和`postRestart()`方法，但如果不重写这两个方法，则默认分别委托给`postStop()`和`preStart()`。你可以尝试重写这些附加方法，并查看输出是如何变化的。
+我们看到失败后，被监督的 Actor 停止并立即重新启动。我们还看到一个日志条目，报告处理的异常，在本例中是我们的测试异常。在这个例子中，我们使用了`preStart()`和`postStop()`钩子，这是重启后和重启前默认调用的钩子，因此我们无法区分 Actor 内部是第一次启动还是重启。这通常是正确的做法，重新启动的目的是将 Actor 设置为已知的良好状态，这通常意味着一个干净的开始阶段。实际上，在重新启动时，调用的是`preRestart()`和`postRestart()`方法，但如果不重写这两个方法，则默认分别委托给`postStop()`和`preStart()`。你可以尝试重写这些附加方法，并查看输出是如何变化的。
 
-对于没有耐心的人，我们还是建议查看「[监督参考页](https://doc.akka.io/docs/akka/current/general/supervision.html)」，了解更深入的细节。
+无论如何，我们还是建议查看「[监督参考页](https://doc.akka.io/docs/akka/current/general/supervision.html)」，了解更深入的细节。
 
 ## 总结
 我们已经了解了 Akka 是如何管理层级结构中的 Actor 的，在层级结构中，父 Actor 会监督他们的子 Actor 并处理异常情况。我们看到了如何创造一个非常简单的 Actor 和其子 Actor。接下来，我们将会把这些知识应该到我们的示例中，获取设备 Actor 的信息。稍后，我们将讨论如何管理小组中的 Actor。

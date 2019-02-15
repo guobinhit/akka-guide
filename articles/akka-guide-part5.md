@@ -26,7 +26,7 @@ libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.19"
 - 记录温度，更新单个字段
 - 设备组 Actor 通过添加或删除映射中的条目来维护组成员身份
 
-在本部分中，我们将使用一个更复杂的示例。由于房主会对整个家庭的温度感兴趣，我们的目标是能够查询一个组中的所有设备参与者。让我们先研究一下这样的查询 API 应该如何工作。
+在本部分中，我们将使用一个更复杂的示例。由于房主会对整个家庭的温度感兴趣，我们的目标是能够查询一个组中的所有设备 Actor。让我们先研究一下这样的查询 API 应该如何工作。
 
 ## 处理可能的情况
 我们面临的第一个问题是，一个组的成员是动态的。每个传感器设备都由一个可以随时停止的 Actor 表示。在查询开始时，我们可以询问所有现有设备 Actor 当前的温度。但是，在查询的生命周期中：
@@ -192,7 +192,7 @@ public class DeviceGroupQuery extends AbstractActor {
 - 我们不直接定义`receive`，而是委托`waitingForReplies`函数来创建`Receive`。
 - `waitingForReplies`函数将跟踪两个更改的值：
   - 已收到响应的`Map`；
-  - 我们还在等待 Actors 响应的`Set`。
+  - 我们还在等待 Actor 响应的`Set`。
 
 我们有三件事要做：
 
@@ -200,7 +200,7 @@ public class DeviceGroupQuery extends AbstractActor {
 - 我们可以为同时被停止的设备 Actor 接收`Terminated`的消息。
 - 我们可以达到截止时间（`deadline`）并收到一个`CollectionTimeout`消息。
 
-在前两种情况下，我们需要跟踪响应，现在我们将其委托给`receivedResponse`方法，稍后我们将讨论该方法。在超时的情况下，我们需要简单地把所有还没有响应的 Actors（集合`stillWaiting`的成员）放在`DeviceTimedOut`中作为最终响应的状态。然后我们用收集到的结果回复查询提交者，并停止查询 Actor。
+在前两种情况下，我们需要跟踪响应，现在我们将其委托给`receivedResponse`方法，稍后我们将讨论该方法。在超时的情况下，我们需要简单地把所有还没有响应的 Actor（集合`stillWaiting`的成员）放在`DeviceTimedOut`中作为最终响应的状态。然后我们用收集到的结果回复查询提交者，并停止查询 Actor。
 
 要完成此操作，请将以下代码添加到`DeviceGroupQuery`源文件中：
 
@@ -240,7 +240,7 @@ public Receive waitingForReplies(
 
 我们已经看到了如何通过从`receive`的返回来安装（`install`）初始化`Receive`。例如，为了安装一个新的`Receive`，为了记录一个新的回复，我们需要一些机制。此机制是方法`context.become(newReceive)`，它将 Actor 的消息处理函数更改为提供的`newReceive`函数。可以想象，在开始之前，Actor 会自动调用`context.become(receive)`，即安装从`receive`返回的`Receive`函数。这是另一个重要的观察：处理消息的不是`receive`，而是返回一个实际处理消息的`Receive`函数。
 
-我们现在必须弄清楚在`receivedResponse`中该怎么做。首先，我们需要在`repliesSoFar`中记录新的结果，并将 Actor 从`stillWaiting`中移除。下一步是检查是否还有其他我们正在等待的 Actors。如果没有，我们将查询结果发送给原始请求者并停止查询 Actor。否则，我们需要更新`repliesSoFar`和`stillWaiting`结构并等待更多的消息。
+我们现在必须弄清楚在`receivedResponse`中该怎么做。首先，我们需要在`repliesSoFar`中记录新的结果，并将 Actor 从`stillWaiting`中移除。下一步是检查是否还有其他我们正在等待的 Actor。如果没有，我们将查询结果发送给原始请求者并停止查询 Actor。否则，我们需要更新`repliesSoFar`和`stillWaiting`结构并等待更多的消息。
 
 在之前的代码中，我们将`Terminated`视为隐式响应`DeviceNotAvailable`，因此`receivedResponse`不需要执行任何特殊操作。但是，还有一个小任务我们仍然需要做。我们可能从设备 Actor 那里接收到正确的响应，但是在查询的生命周期中，它会停止。我们不希望此第二个事件覆盖已收到的响应。换句话说，我们不希望在记录响应之后接收`Terminated`。这很容易通过调用`context.unwatch(ref)`实现。此方法还确保我们不会接收已经在 Actor 邮箱中的`Terminated`事件。多次调用此函数也是安全的，只有第一次调用才会有任何效果，其余的调用将被忽略
 
@@ -739,7 +739,6 @@ public void testCollectTemperaturesFromAllActiveDevices() {
 要从本指南获得完整的应用程序，你可能需要提供 UI 或 API。为此，我们建议你查看以下技术，看看哪些适合你：
 
 - 「[Akka HTTP](https://doc.akka.io/docs/akka/current/additional/books.html)」是一个 HTTP 服务和客户端的库，使发布和使用 HTTP 端点（`endpoints`）成为可能。
-is a HTTP server and client library, making it possible to publish and consume HTTP endpoints
 - 「[Play Framework](https://doc.akka.io/docs/akka/current/additional/books.html)」是一个成熟的 Web 框架，它构建在 Akka HTTP 之上，它能与 Akka 很好地集成，可用于创建一个完整的现代 Web 用户界面。
 - 「[Lagom](https://doc.akka.io/docs/akka/current/additional/books.html)」是一个基于 Akka 的独立的微服务框架，它编码了 Akka 和 Play 的许多最佳实践。
 

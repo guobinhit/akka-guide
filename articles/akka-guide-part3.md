@@ -65,7 +65,7 @@ public static final class RespondTemperature {
 
 但是如果进一步理解协议灵活性的需求，它将有助于考虑 Akka 消息订阅和消息传递的安全保证。Akka 为消息发送提供以下行为：
 
-- 至多发送一次消息，即无保证发送；
+- 至多发送一次消息，即消息发送没有保证；
 - 按“发送方、接收方”对维护消息顺序。
 
 以下各节更详细地讨论了此行为：
@@ -105,7 +105,7 @@ public static final class RespondTemperature {
 在这个特定的例子中，我们只希望在数据库成功写入之后就发出成功的信号，在这里数据库确认订单现在已安全存储。基于这些原因，Akka 解除了对应用程序本身的保证责任，即你必须自己使用 Akka 提供的工具来实现这些保证。这使你能够完全控制你想要提供的保证。现在，让我们考虑一下 Akka 提供的消息序列，它可以很容易地解释应用程序逻辑。
 
 ### 消息序列
-在 Akka 中 ，对于一对给定的 Actors，直接从第一个 Actor 发送到第二个 Actor 的消息不会被无序接收。该词直接强调，此保证仅在与`tell`运算符直接发送到最终目的地时适用，而在使用中介时不适用。
+在 Akka 中 ，对于一对给定的 Actor，直接从第一个 Actor 发送到第二个 Actor 的消息不会被无序接收。该词直接强调，此保证仅在与`tell`运算符直接发送到最终目的地时适用，而在使用中介时不适用。
 
 如果：
 
@@ -224,11 +224,11 @@ class Device extends AbstractActor {
 
 ## 测试 Actor
 
-基于上面的简单 Actor，我们可以编写一个简单的测试。您可以在此处的「[快速入门指南测试示例](https://developer.lightbend.com/guides/akka-quickstart-java/testing-actors.html)」中检查 Actor 测试的完整示例。你将在这里找到一个关于如何完全设置 Actor 测试的示例，以便正确地运行它。
+基于上面的简单 Actor，我们可以编写一个简单的测试。你可以在此处的「[快速入门指南测试示例](https://developer.lightbend.com/guides/akka-quickstart-java/testing-actors.html)」中检查 Actor 测试的完整示例。你将在这里找到一个关于如何完全设置 Actor 测试的示例，以便正确地运行它。
 
 在项目的测试目录中，将以下代码添加到`DeviceTest.java`文件中。
 
-您可以通过`mvn test`或`sbt`命令来运行此测试代码。
+你可以通过`mvn test`或`sbt`命令来运行此测试代码。
 
 ```java
 @Test
@@ -242,11 +242,11 @@ public void testReplyWithEmptyReadingIfNoTemperatureIsKnown() {
 }
 ```
 
-现在，当 Actor 收到来自传感器的信息时  它需要一种方法来改变温度的状态。
+现在，当 Actor 收到来自传感器的信息时，它需要一种方法来改变温度的状态。
 
 ## 添加写入协议
 
-写入协议（`write protocol`）的目的是在 Actor 收到包含温度的消息时更新`currentTemperature`字段。同样，将写协议定义为一个非常简单的消息是很有吸引力的，比如：
+写入协议（`write protocol`）的目的是在 Actor 收到包含温度的消息时更新`currentTemperature`字段。同样，将写入协议定义为一个非常简单的消息是很有吸引力的，比如：
 
 ```java
 public static final class RecordTemperature {

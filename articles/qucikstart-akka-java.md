@@ -1,8 +1,8 @@
 # 快速入门 Akka Java 指南
 
-Akka 是一个用于在 JVM 上构建高并发、分布式和容错的事件驱动应用程序的运行时工具包。Akka 既可以用于 Java，也可以用于 Scala。本指南通过描述 Java 版本的`Hello World`示例来介绍 Akka。如果你喜欢将 Akka 与 Scala 结合使用，请切换到「[快速入门 Akka Scala 指南](https://github.com/guobinhit/akka-guide/blob/master/articles/qucikstart-akka-java.md)」。
+Akka 是一个用于在 JVM 上构建高并发、分布式和容错的事件驱动应用程序的运行时工具包。Akka 既可以用于 Java，也可以用于 Scala。本指南通过描述 Java 版本的`Hello World`示例来介绍 Akka。如果你喜欢将 Akka 与 Scala 结合使用，请切换到「[快速入门 Akka Scala 指南](https://github.com/guobinhit/akka-guide/blob/master/articles/qucikstart-akka-scala.md)」。
 
-Actors 是 Akka 的执行单元。Actor 模型是一种抽象，它让编写正确的并发、并行和分布式系统更容易。`Hello World`示例说明了 Akka 的基础知识。在 30 分钟内，你应该能够下载并运行示例，并使用本指南了解示例是如何构造的。这会让你初步了解 Akka 的魅力，希望这能够让你拥有深入了解 Akka 的兴趣（`This will get your feet wet, and hopefully inspire you to dive deeper into the wonderful sea of Akka`）！
+Actors 是 Akka 的执行单元。Actor 模型是一种抽象，它让编写正确的并发、并行和分布式系统更加容易。`Hello World`示例说明了 Akka 的基础知识。在 30 分钟内，你应该能够下载并运行示例，并使用本指南了解示例是如何构造的。这会让你初步了解 Akka 的魅力，希望这能够让你拥有深入了解 Akka 的兴趣（`This will get your feet wet, and hopefully inspire you to dive deeper into the wonderful sea of Akka`）！
 
 在体验过这个示例之后，想深入了解 Akka，阅读「[Getting Started Guide](https://doc.akka.io/docs/akka/2.5/guide/introduction.html?language=java)」是一个很好的选择。
 
@@ -71,29 +71,29 @@ $ gradle run
 
 ![mainclass-hhgp](https://github.com/guobinhit/akka-guide/blob/master/images/qucikstart-akka-java/mainclass-hhgp.png)
 
-Akka 对 Actors 和异步消息传递的使用带来了一系列好处。大家可以考虑一下都带来了什么好处？
+Akka 对 Actor 和异步消息传递的使用带来了一系列好处。大家可以考虑一下都带来了什么好处？
 
 ## 使用 Actor 模型的好处
 Akka 的以下特性使你能够以直观的方式解决困难的并发性和可伸缩性挑战：
 
-- 事件驱动模型：`Event-driven model`，Actors 通过响应消息来执行工作。Actors 之间的通信是异步的，允许 Actors 发送消息并继续自己的工作，而不是阻塞等待响应。
-- 强隔离原则：`Strong isolation principles`，与 Java 中的常规对象不同，Actors 在调用的方法方面，没有一个公共 API。相反，它的公共 API 是通过 Actors 处理的消息来定义的。这可以防止 Actors 之间共享状态；观察另一个 Actors 状态的唯一方法是向其发送请求状态的消息。
-- 位置透明：`Location transparency`，系统通过工厂方法构造 Actors 并返回对实例的引用。因为位置无关紧要，所以 Actors 实例可以启动、停止、移动和重新启动，以向上和向下扩展以及从意外故障中恢复。
-- 轻量级：`Lightweight`，每个实例只消耗几百个字节，这实际上允许数百万并发 Actors 存在于一个应用程序中。
+- 事件驱动模型：`Event-driven model`，Actor 通过响应消息来执行工作。Actor 之间的通信是异步的，允许 Actor 发送消息并继续自己的工作，而不是阻塞等待响应。
+- 强隔离原则：`Strong isolation principles`，与 Java 中的常规对象不同，Actor 在调用的方法方面，没有一个公共 API。相反，它的公共 API 是通过 Actor 处理的消息来定义的。这可以防止 Actor 之间共享状态；观察另一个 Actor 状态的唯一方法是向其发送请求状态的消息。
+- 位置透明：`Location transparency`，系统通过工厂方法构造 Actor 并返回对实例的引用。因为位置无关紧要，所以 Actor 实例可以启动、停止、移动和重新启动，以向上和向下扩展以及从意外故障中恢复。
+- 轻量级：`Lightweight`，每个实例只消耗几百个字节，这实际上允许数百万并发 Actor 存在于一个应用程序中。
 
-让我们看看在`Hello World`示例中使用 Actors 和消息一起工作的一些最佳实践。
+让我们看看在`Hello World`示例中使用 Actor 和消息一起工作的一些最佳实践。
 
-## 定义 Actors 和消息
+## 定义 Actor 和消息
 
 消息可以是任意类型（`Object`的任何子类型），你可以将装箱类型（如`String`、`Integer`、`Boolean`等）作为消息发送，也可以将普通数据结构（如数组和集合类型）作为消息发送。
 
-`Hello World`的 Actors 使用三种不同的消息：
+`Hello World`的 Actor 使用三种不同的消息：
 
 - `WhoToGreet`：问候消息的接受者；
 - `Greet`：执行问候的指令；
 - `Greeting`：包含问候语的消息。
 
-在定义 Actors 及其消息时，请记住以下建议：
+在定义 Actor 及其消息时，请记住以下建议：
 
 - 因为消息是 Actor 的公共 API，所以定义具有良好名称、丰富语义和特定于域的含义的消息是一个很好的实践，即使它们只是包装你的数据类型，这将使基于 Actor 的系统更容易使用、理解和调试。
 - 消息应该是不可变的，因为它们在不同的线程之间共享。
@@ -160,7 +160,7 @@ public class Greeter extends AbstractActor {
 - `Greeter`构造函数接受两个参数：`String message`，它将在构建问候语时使用，`ActorRef printerActor`是处理问候语输出的 Actor 的引用。
 - `receiveBuilder`定义了行为；Actor 应该如何响应它接收到的不同消息。Actor 可以有状态。访问或改变 Actor 的内部状态是线程安全的，因为它受 Actor 模型的保护。`createReceive`方法应处理 Actor 期望的消息。对于`Greeter`，它需要两种类型的消息：`WhoToGreet`和`Greet`，前者将更新 Actor 的问候语状态，后者将触发向`Printer Actor`发送问候语。
 - `greeting`变量包含 Actor 的状态，默认设置为`""`。
-- 静态`props`方法创建并返回`Props`实例。`Props`是一个配置类，用于指定创建 Actor 的选项，将其视为不可变的，因此可以自由共享用于创建可以包含相关部署信息的 Actor 的方法。这个例子简单地传递了 Actor 在构造时需要的参数。我们将在本教程的后面部分看到`props`方法的实际应用。
+- 静态`props`方法创建并返回`Props`实例。`Props`是一个配置类，用于指定创建 Actor 的选项，将其视为不可变的，因此可以自由共享用于创建包含相关部署信息的 Actor 的方法。这个例子简单地传递了 Actor 在构造时需要的参数。我们将在本教程的后面部分看到`props`方法的实际应用。
 
 ### Printer Actor
 `Printer`的实现非常简单：
@@ -204,20 +204,20 @@ public class Printer extends AbstractActor {
   }
 }
 ```
-## 创建 Actors
-到目前为止，我们已经研究了 Actors 的定义和他们的消息。现在，让我们更深入地了解位置透明（`location transparency`）的好处，看看如何创建 Actor 实例。
+## 创建 Actor
+到目前为止，我们已经研究了 Actor 的定义和他们的消息。现在，让我们更深入地了解位置透明（`location transparency`）的好处，看看如何创建 Actor 实例。
 
 ### 位置透明的好处
 在 Akka 中，不能使用`new`关键字创建 Actor 的实例。相反，你应该使用工厂方法创建 Actor 实例。工厂不返回 Actor 实例，而是返回指向 Actor 实例的引用`akka.actor.ActorRef`。在分布式系统中，这种间接创建实例的方法增加了很多好处和灵活性。
 
-在 Akka 中位置无关紧要。位置透明性意味着，无论是在正在运行 Actor 的进程内，还是运行在远程计算机上，`ActorRef`都可以保持相同语义。如果需要，运行时可以通过在更改 Actor 的位置或整个应用程序拓扑来优化系统。这就启用了故障管理的“让它崩溃（`let it crash`）”模型，在该模型中，系统可以通过销毁有问题的 Actor 和重新启动健康的 Actor 来自我修复。
+在 Akka 中位置无关紧要。位置透明性意味着，无论是在正在运行 Actor 的进程内，还是运行在远程计算机上，`ActorRef`都可以保持相同语义。如果需要，运行时可以通过更改 Actor 的位置或整个应用程序拓扑来优化系统。这就启用了故障管理的“让它崩溃（`let it crash`）”模型，在该模型中，系统可以通过销毁有问题的 Actor 和重新启动健康的 Actor 来自我修复。
 
 ### Akka ActorSystem
-`akka.actor.ActorSystem`工厂在某种程度上类似于 Spring 的 BeanFactory，它是运行 Actors 的容器并管理他们的生命周期。`actorOf`工厂方法创建 Actors 并接受两个参数，一个名为`props`的配置对象和一个`String`类型的 Actor 名称。
+`akka.actor.ActorSystem`工厂在某种程度上类似于 Spring 的 BeanFactory，它是运行 Actor 的容器并管理他们的生命周期。`actorOf`工厂方法创建 Actor 并接受两个参数，一个名为`props`的配置对象和一个`String`类型的 Actor 名称。
 
 Actor 和 ActorSystem 的名字在 Akka 中很重要。例如，使用它们进行查找。使用与你的域模型（`domain model`）一致的有意义的名称可以更容易地对它们进行推理。
 
-前面我们看了`Hello World`的 Actors 定义。现在，让我们看看`AkkaQuickstart.java`文件中创建 Greeter Actor 和 Printer Actor 实例的代码：
+前面我们看了`Hello World`的 Actor 定义。现在，让我们看看`AkkaQuickstart.java`文件中创建 Greeter Actor 和 Printer Actor 实例的代码：
 
 ```java
 final ActorRef printerActor = 
@@ -234,14 +234,14 @@ final ActorRef goodDayGreeter =
 - 使用 ActorSystem 上的`actorOf`方法创建 Printer Actor。正如我们在前面讨论的，它使用了`Printer`类的静态`props`方法来获取`Props`值。ActorRef 提供了对新创建的 Printer Actor 实例的引用。
 - 对于`Greeter`，代码创建三个 Actor 实例，每个实例都有一个特定的问候语。
 
-**注意**：在本例中，Greeter Actors 都使用了相同的 Printer 实例，但我们可以创建多个 Printer Actor 实例。示例中使用一个实例来说明稍后我们将讨论的消息传递（`message passing`）的一个重要概念。
+**注意**：在本例中，Greeter Actor 都使用了相同的 Printer 实例，但我们可以创建多个 Printer Actor 实例。示例中使用一个实例来说明稍后我们将讨论的消息传递（`message passing`）的一个重要概念。
 
-接下来，我们来看看如何与 Actors 通信。
+接下来，我们来看看如何与 Actor 通信。
 
 ## 异步通信
- Actors 是被动的和消息驱动的。Actor 在收到消息前什么都不做。Actors 使用异步消息进行通信。这样可以确保发送者不会一直等待接收者处理他们的消息。相反，发件人将邮件放在收件人的邮箱之后，就可以自由地进行其他工作。Actor 的邮箱本质上是一个具有排序语义的消息队列。从同一个参与者发送的多条消息的顺序被保留，但可以与另一个 Actor 发送的消息交错。
+ Actor 是被动的和消息驱动的。Actor 在收到消息前什么都不做。Actor 使用异步消息进行通信。这样可以确保发送者不会一直等待接收者处理他们的消息。相反，发件人将邮件放在收件人的邮箱之后，就可以自由地进行其他工作。Actor 的邮箱本质上是一个具有排序语义的消息队列。从同一个 Actor 发送的多条消息的顺序被保留，但可以与另一个 Actor 发送的消息交错。
 
-你可能想知道 Actor 在不处理消息的时候在做什么，比如，做什么实际的工作？实际上，它处于挂起状态，在这种状态下，它不消耗除内存之外的任何资源。同样，这也展示了 Actors 的轻量级和高效性。
+你可能想知道 Actor 在不处理消息的时候在做什么，比如，做什么实际的工作？实际上，它处于挂起状态，在这种状态下，它不消耗除内存之外的任何资源。同样，这也展示了 Actor 的轻量级和高效性。
 
 ### 给 Actor 发生消息
 要将消息放入 Actor 的邮箱，我们需要使用`ActorRef`的`tell`方法。例如，`Hello World`的主函数`main`向 Greeter Actor 发送如下消息：
@@ -268,7 +268,7 @@ printerActor.tell(new Greeting(greeting), getSelf());
 
 ## Main class
 
-`Hello World`的 `Main`类创建和控制 Actors。注意，使用`ActorSystem`作为容器，并使用`actorOf`方法创建 Actors。最后，类创建要发送给 Actors 的消息。
+`Hello World`的 `Main`类创建和控制 Actor。注意，使用`ActorSystem`作为容器，并使用`actorOf`方法创建 Actor。最后，类创建要发送给 Actor 的消息。
 
 ```java
 package com.lightbend.akka.sample;
@@ -455,12 +455,12 @@ public class AkkaQuickstart {
 ```
 作为另一个最佳实践，我们应该提供一些单元测试。
 
-## 测试 Actors
+## 测试 Actor
 `Hello World`示例中的测试展示了 JUnit 框架的使用。虽然测试的覆盖范围不完整，但它简单地展示了测试 Actor 代码是多么的容易，并提供了一些基本概念。你可以把它作为一个练习来增加你自己的知识。
 
 测试类使用的是`akka.test.javadsl.TestKit`，它是用于 Actor 和 Actor 系统集成测试的模块。这个类只使用了`TestKit`提供的一部分功能。
 
-集成测试可以帮助我们确保 Actors 的行为是异步的。第一个测试使用`TestKit`探针来询问和验证预期的行为。让我们看看源代码片段：
+集成测试可以帮助我们确保 Actor 的行为是异步的。第一个测试使用`TestKit`探针来询问和验证预期的行为。让我们看看源代码片段：
 
 ```java
 package com.lightbend.akka.sample;

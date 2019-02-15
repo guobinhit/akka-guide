@@ -10,10 +10,10 @@ import akka.event.LoggingAdapter;
 import java.io.IOException;
 
 /**
- * @author bin.guo
- * @Copyright 易宝支付(YeePay)
- * @date 1/17/19,4:11 PM
- * @description
+ * author:Charies Gavin
+ * date:2019/01/17,16:11
+ * https:github.com/guobinhit
+ * description: MyActor
  */
 public class MyActor extends AbstractActor {
     private final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
@@ -28,7 +28,7 @@ public class MyActor extends AbstractActor {
                 .match(String.class, s -> {
                     log.info("This is a String type message, content is {}", s);
                     ActorRef child = getContext().actorOf(MyActor.props(), "child");
-                    child.tell(22222, ActorRef.noSender());
+                    child.tell(521, getSelf());
                     System.out.println(child);
                 })
                 .matchAny(o -> {
@@ -39,13 +39,13 @@ public class MyActor extends AbstractActor {
 
     public static void main(String[] args) {
         ActorSystem system = ActorSystem.create("mySystem");
-//        ActorRef myActor = system.actorOf(MyActor.props(), "myActor");
-        ActorRef myActor = system.actorOf(MyActor.props());
-        myActor.tell("hello", ActorRef.noSender());
+        ActorRef myActor = system.actorOf(MyActor.props(), "myActor");
+//        ActorRef myActor = system.actorOf(MyActor.props());
+        myActor.tell("hello world", ActorRef.noSender());
 
-//        ActorRef myActor2 = system.actorOf(MyActor.props(), "myActor2");
-        ActorRef myActor2 = system.actorOf(MyActor.props());
-        myActor2.tell(1, ActorRef.noSender());
+        ActorRef myActor2 = system.actorOf(MyActor.props(), "myActor2");
+//        ActorRef myActor2 = system.actorOf(MyActor.props());
+        myActor2.tell(1314, ActorRef.noSender());
 
         try {
             System.out.println(">>> Press ENTER to exit <<<");
