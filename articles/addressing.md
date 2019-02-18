@@ -1,12 +1,12 @@
 # Actor 引用、路径和地址
-本章描述如何在可能的分布式 Actor 系统中标识和定位 Actor。它与这样一个核心理念紧密相连：「[Actor 系统](https://doc.akka.io/docs/akka/current/general/actor-systems.html)」形成了内在的监督层次结构，并且 Actor 之间的通信在跨多个网络节点的位置方面是透明的。
+本章描述如何在可能的分布式 Actor 系统中标识和定位 Actor。它与这样一个核心理念紧密相连：「[Actor Systems](https://github.com/guobinhit/akka-guide/blob/master/articles/actor-systems.md)」形成了内在的监督层次结构，并且 Actor 之间的通信在跨多个网络节点的位置方面是透明的。
 
 ![actor-system](https://github.com/guobinhit/akka-guide/blob/master/images/addressing/actor-system.png)
 
 上图显示了 Actor 系统中最重要的实体之间的关系，有关详细信息，请继续阅读。
 
 ## 什么是 Actor 的引用？
-Actor 引用是`ActorRef`的一个子类型，其首要目的是支持将消息发送给它所代表的 Actor。每个 Actor 都可以通过`self`字段访问其规范（本地）引用；默认情况下，对于发送给其他 Actor 的所有消息，此引用也作为发送者引用包含在内。相应地，在消息处理期间，Actor 可以通过`sender() `方法访问表示当前消息发送者的引用。
+Actor 引用是`ActorRef`的一个子类型，其首要目的是支持将消息发送给它所代表的 Actor。每个 Actor 都可以通过`self`字段访问其规范（本地）引用；默认情况下，对于发送给其他 Actor 的所有消息，此引用也作为发送者引用包含在内。相应地，在消息处理期间，Actor 可以通过`sender()`方法访问表示当前消息发送者的引用。
 
 根据 Actor 系统的配置，支持几种不同类型的 Actor 引用：
 
@@ -33,7 +33,7 @@ Actor 引用指定一个单独的 Actor，引用的生命周期与该 Actor 的�
 
 你可以创建一个 Actor，终止它，然后使用相同的 Actor 路径创建一个新的 Actor。新创建的 Actor 是原 Actor 的化身。他们不是同一个 Actor。Actor 引用旧的化身（`incarnation`）对新的化身无效。发送到旧 Actor 引用的消息将不会传递到新的化身，即使它们具有相同的路径。
 
-### Actor 路径锚定
+### Actor 路径锚点
 每个 Actor 路径都有一个地址组件，描述了协议和位置，通过这些协议和位置可以访问相应的 Actor，路径中的元素是从根目录向上的层次结构中 Actor 的名称。例如：
 
 ```

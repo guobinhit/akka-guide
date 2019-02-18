@@ -5,7 +5,7 @@
 你可以查看「[监督示例项目](https://developer.lightbend.com/start/?group=akka&project=akka-samples-supervision-java)」，以了解实际使用的情况。
 
 ## 监督是什么意思
-正如「[Actor Systems](https://doc.akka.io/docs/akka/current/general/actor-systems.html)」 监督中所描述的，Actor 之间的依赖关系是：`supervisor`将任务委托给子级（*译者说，即子 Actor*），因此必须对其失败作出响应。当子级检测到故障（即抛出异常）时，它会挂起自身及其所有下级，并向其监督者发送一条消息，也就是故障信号。根据监督工作的性质和失败的性质，监督者有以下四种选择：
+正如「[Actor Systems](https://github.com/guobinhit/akka-guide/blob/master/articles/actor-systems.md)」中监督所描述的，Actor 之间的依赖关系是：`supervisor`将任务委托给子级，因此必须对其失败作出响应。当子级检测到故障（即抛出异常）时，它会挂起自身及其所有下级，并向其监督者发送一条消息，也就是故障信号。根据监督工作的性质和失败的性质，监督者有以下四种选择：
 
 - 恢复子级，保持其累积的内部状态
 - 重新启动子级，清除其累积的内部状态
@@ -14,11 +14,11 @@
 
 始终将一个 Actor 视为监管层级的一部分是很重要的，这解释了第四个选择的存在（作为一个监督者也从属于上一级的另一个监督者），并对前三个有影响：恢复一个 Actor 恢复其所有子级，重新启动一个 Actor 需要重新启动其所有子级（如需更多详细信息，请参见下文），同样，终止 Actor 也将终止其所有子级。需要注意的是，`Actor`类的`preRestart`钩子的默认行为是在重新启动之前终止它的所有子级，但是这个钩子可以被重写；递归重新启动应用于执行这个钩子之后剩下的所有子级。
 
-每个监督者都配置了一个函数，将所有可能的故障原因（即异常）转换为上面给出的四个选项之一；值得注意的是，该函数不将故障 Actor 的身份（`identity`）作为输入。很容易找到结构的例子，这些结构似乎不够灵活，例如希望将不同的策略应用于不同的子级。在这一点上，重要的是要理解监督是关于形成一个递归的故障处理结构。如果你试图在一个层面上做的太多，就很难解释了，因此在这种情况下，建议的方法是增加一个层面（`level`）的监督。
+每个监督者都配置了一个函数，将所有可能的故障原因（即异常）转换为上面给出的四个选项之一；值得注意的是，该函数不将故障 Actor 的身份（`identity`）作为输入。这样的结构似乎不够灵活，很容易找到类似的例子，例如希望将不同的策略应用于不同的子级。在这一点上，重要的是要理解监督是关于形成一个递归的故障处理结构。如果你试图在一个层面上做的太多，就很难解释了，因此在这种情况下，建议的方法是增加一个层面（`level`）的监督。
 
 Akka 实现了一种称为“父母监督（`parental supervision`）”的特殊形式。Actor 只能由其他 Actor 创建，其中顶级 Actor 由库提供，每个创建的 Actor 都由其父 Actor 监督。这种限制使得 Actor 监督层次的形成变得含蓄，并鼓励做出合理的设计决策。应当指出的是，这也保证了 Actor 不能成为孤儿，也不能从外部依附于监管者，否则他们可能会不知不觉地被抓起来（`which might otherwise catch them unawares`）。此外，这也为 Actor 应用程序（子树，`sub-trees of`）生成了一个自然、干净的关闭过程。
 
-- **警告**：与监视（`supervision`）相关的父子通信通过特殊的系统消息进行，这些消息的邮箱与用户消息分开。这意味着与监视相关的事件并不是相对于普通消息确定的顺序。一般来说，用户不能影响正常消息和故障通知的顺序。有关详细信息和示例，请参阅「[Discussion: Message Ordering section](https://doc.akka.io/docs/akka/current/general/message-delivery-reliability.html#message-ordering)」。
+- **警告**：与监督（`supervision`）相关的父子通信通过特殊的系统消息进行，这些消息的邮箱与用户消息分开。这意味着与监督相关的事件并不是相对于普通消息确定的顺序。一般来说，用户不能影响正常消息和故障通知的顺序。有关详细信息和示例，请参阅「[Discussion: Message Ordering section](https://doc.akka.io/docs/akka/current/general/message-delivery-reliability.html#message-ordering)」。
 
 ## 顶级监督者
 ![top-level-supervisors](https://github.com/guobinhit/akka-guide/blob/master/images/supervision/top-level-supervisors.png)
@@ -26,7 +26,7 @@ Akka 实现了一种称为“父母监督（`parental supervision`）”的特�
 一个 Actor 系统在创建过程中至少会启动三个 Actor，如上图所示。有关 Actor 路径的详细信息，请参阅「[Top-Level Scopes for Actor Paths](https://doc.akka.io/docs/akka/current/general/addressing.html#toplevel-paths)」。
 
 - `/user`: The Guardian Actor，最可能与之交互的 Actor 是所有用户创建的 Actor 的父级，守护者名为`/user`。使用`system.actorOf()`创建的 Actor 是此 Actor 的子级。这意味着当这个守护者终止时，系统中的所有正常 Actor 也将关闭。这也意味着守护者的监管策略决定了顶级（`top-level`）正常 Actor 的监督方式。自 Akka 2.1 开始，可以使用`akka.actor.guardian-supervisor-strategy`来配置它，该设置采用了一个`SupervisorStrategyConfigurator`的完全限定类名。当守护者升级失败（`escalates a failure`）时，根守护者（`root guardian`）的响应将会终止守护者，这实际上将关闭整个 Actor 系统。
-- `/system`: The System Guardian，为了实现有序的关闭顺序，引入了这个特殊的守护者，当所有正常的 Actor 都终止，日志记录也保持活动状态，即使日志记录本身也是使用 Actor 实现的。这是通过让系统守护者（`system guardian`）监视用户守护者（`user guardian`）并在接收到`Terminated`消息时启动自己的关闭来实现的。顶层系统 Actor 使用一种策略进行监督，该策略将在所有类型的`Exception`（其中，`ActorInitializationException`和`ActorKilledException`除外）上无限期重新启动，这将终止相关的子级。所有其他可抛的异常事件都会升级，这将关闭整个 Actor 系统。
+- `/system`: The System Guardian，为了实现有序的关闭顺序，引入了这个特殊的守护者，当所有正常的 Actor 都终止，日志记录也保持活动状态，即使日志记录本身也是使用 Actor 实现的。这是通过让系统守护者（`system guardian`）监视（`watch`）用户守护者（`user guardian`）并在接收到`Terminated`消息时启动自己的关闭来实现的。顶层系统 Actor 使用一种策略进行监督，该策略将在所有类型的`Exception`（其中，`ActorInitializationException`和`ActorKilledException`除外）上无限期重新启动，这将终止相关的子级。所有其他可抛的异常事件都会升级，这将关闭整个 Actor 系统。
 - `/`: The Root Guardian，根守护者是所有所谓的“顶级（`top-level`）” Actor 的祖父（`grand-parent`）级，并使用`SupervisorStrategy.stoppingStrategy`监督「[Top-Level Scopes for Actor Paths](https://doc.akka.io/docs/akka/current/general/addressing.html#toplevel-paths)」中提到的所有特殊 Actor，其目的是在任何类型的`Exception`情况下终止子 Actor。所有其他可抛的（`throwables`）异常都会升级……但是给谁？因为每个真正的 Actor 都有一个监督者，所以根守护者的监督者不能是真正的 Actor。因为这意味着它是“气泡的外面（`outside of the bubble`）”，所以它被称为“气泡行者（`bubble-walker`）”。这是一个虚构的`ActorRef`，它在出现问题的第一个征兆时停止其子系统，并在根守护程序完全终止（所有子系统递归停止）后将 Actor 系统的`isTerminated`状态设置为`true`。
 
 ## 重启意味着什么？
@@ -46,7 +46,7 @@ Akka 实现了一种称为“父母监督（`parental supervision`）”的特�
  4. 通过再次调用最初提供的工厂来创建新的 Actor 实例
  5. 在新实例上调用`postRestart`（默认情况下，该实例还调用`preStart`）
  6. 向步骤 3 中未杀死的所有子级发送重新启动请求；从步骤 2 开始，重新启动的子级将递归地执行相同的过程。
- 7. 恢复演员
+ 7. 恢复 Actor
 
 ## 生命周期监控意味着什么？
 - **注释**：Akka 中的生命周期监控通常被称为`DeathWatch`。
@@ -178,9 +178,7 @@ Akka 提供了两种监管策略：一种是`OneForOneStrategy`，另一种是`A
 
 在`All-For-One`策略中，通常停止一个子级将不会自动终止其他子级；通过监控他们的生命周期可以完成：如果监督者不处理`Terminated`消息，它将抛出`DeathPactException`（这取决于它的监督者），它将重新启动，默认的`preRestart`将终止其所有的子级。
 
-请注意，创建的一次性（`one-off`） Actor 来自一个`all-for-one`监督者，通过临时 Actor 的失败升级影响所有其他的 Actor。如果这是没有安装所需的中间，这是做甚的主管；CAN declaring路由器1的大小由国有企业的职工，路由。
-
-如果不需要这样做，可以安装一个中间监督者；这可以通过为`worker`声明一个大小为 1 的路由器来实现，详见「[Routing](https://doc.akka.io/docs/akka/current/routing.html)」。
+请注意，创建的一次性（`one-off`） Actor 来自一个`all-for-one`监督者，通过临时 Actor 的失败升级影响所有其他的 Actor。如果不需要这样做，可以安装一个中间监督者；这可以通过为`worker`声明一个大小为 1 的路由器来实现，详见「[Routing](https://doc.akka.io/docs/akka/current/routing.html)」。
 
 ----------
 
