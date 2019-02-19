@@ -2,6 +2,8 @@ package sample.cluster.transformation;
 
 import static sample.cluster.transformation.TransformationMessages.BACKEND_REGISTRATION;
 
+import akka.event.Logging;
+import akka.event.LoggingAdapter;
 import sample.cluster.transformation.TransformationMessages.TransformationJob;
 import sample.cluster.transformation.TransformationMessages.TransformationResult;
 import akka.actor.AbstractActor;
@@ -12,6 +14,7 @@ import akka.cluster.Member;
 import akka.cluster.MemberStatus;
 
 public class TransformationBackend extends AbstractActor {
+    LoggingAdapter log = Logging.getLogger(getContext().getSystem(),this);
 
     Cluster cluster = Cluster.get(getContext().system());
 
@@ -51,5 +54,6 @@ public class TransformationBackend extends AbstractActor {
         if (member.hasRole("frontend"))
             getContext().actorSelection(member.address() + "/user/frontend").tell(
                     BACKEND_REGISTRATION, self());
+        log.info("TransformationBackend register member, role is {}, path is {}", member.getRoles(), member.address());
     }
 }

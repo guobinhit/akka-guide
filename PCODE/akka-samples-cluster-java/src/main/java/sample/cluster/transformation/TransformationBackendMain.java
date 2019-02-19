@@ -22,7 +22,5 @@ public class TransformationBackendMain {
         ActorSystem system = ActorSystem.create("ClusterSystem", config);
 
         system.actorOf(Props.create(TransformationBackend.class), "backend");
-
     }
-
 }

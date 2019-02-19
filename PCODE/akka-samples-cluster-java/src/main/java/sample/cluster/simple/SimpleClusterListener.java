@@ -17,8 +17,8 @@ public class SimpleClusterListener extends AbstractActor {
     //subscribe to cluster changes
     @Override
     public void preStart() {
-        cluster.subscribe(self(), ClusterEvent.initialStateAsEvents(),
-                MemberEvent.class, UnreachableMember.class);
+//        cluster.subscribe(self(), ClusterEvent.initialStateAsEvents(), MemberEvent.class, UnreachableMember.class);
+        cluster.subscribe(self(), MemberEvent.class, UnreachableMember.class);
     }
 
     //re-subscribe when restart
@@ -40,7 +40,15 @@ public class SimpleClusterListener extends AbstractActor {
                     log.info("Member is Removed: {}", mRemoved.member());
                 })
                 .match(MemberEvent.class, message -> {
-                    // ignore
+                    log.info("MemberEvent matched, message is {}", message);
+                })
+                /**
+                 * when subscribe sentence is below
+                 * cluster.subscribe(self(), MemberEvent.class, UnreachableMember.class);
+                 * subscriber actor will receive a CurrentClusterState as the first message
+                 */
+                .match(ClusterEvent.CurrentClusterState.class, ccs -> {
+                    log.info("Subscribe node event success, current cluster state is {}", ccs);
                 })
                 .build();
     }

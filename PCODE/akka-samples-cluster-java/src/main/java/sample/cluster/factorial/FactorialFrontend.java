@@ -55,5 +55,4 @@ public class FactorialFrontend extends AbstractActor {
             backend.tell(n, self());
         }
     }
-
 }

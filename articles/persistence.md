@@ -41,27 +41,27 @@ libraryDependencies += "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8"
 你可以查看「[持久化示例](https://developer.lightbend.com/start/?group=akka&project=akka-samples-persistence-java)」项目，以了解 Akka 持久化的实际使用情况。
 
 ## 简介
-Akka 持久性使有状态的 Actor 能够持久化其状态，以便在 Actor 重新启动（例如，在 JVM 崩溃之后）、由监督者或手动停止启动或迁移到集群中时可以恢复状态。Akka 持久性背后的关键概念是，只有 Actor 接收到的事件才被持久化，而不是 Actor 的实际状态（尽管也提供了 Actor 状态快照支持）。事件通过附加到存储（没有任何变化）来持久化，这允许非常高的事务速率和高效的复制。有状态的 Actor 通过将存储的事件重放给 Actor 来恢复，从而允许它重建其状态。这可以是更改的完整历史记录，也可以从快照中的检查点开始，这样可以显著缩短恢复时间。Akka  持久化（`persistence`）还提供具有至少一次消息传递语义的点对点（`point-to-point`）通信。
+Akka 持久性使有状态的 Actor 能够持久化其状态，以便在 Actor 重新启动（例如，在 JVM 崩溃之后）、由监督者或手动停止启动或迁移到集群中时可以恢复状态。Akka 持久性背后的关键概念是，只有 Actor 接收到的事件才被持久化，而不是 Actor 的实际状态（尽管也提供了 Actor 状态快照支持）。事件通过附加到存储（没有任何变化）来持久化，这允许非常高的事务速率和高效的复制。有状态的 Actor 通过将存储的事件重放给 Actor 来恢复，从而允许它重建其状态。这可以是更改的完整历史记录，也可以从快照中的检查点开始，这样可以显著缩短恢复时间。Akka  持久化（`persistence`）还提供具有至少一次消息传递（`at-least-once message delivery `）语义的点对点（`point-to-point`）通信。
 
-- **注释**：《通用数据保护条例》（GDPR）要求必须根据用户的要求删除个人信息。删除或修改携带个人信息的事件是困难的。数据分解可以用来忘记信息，而不是删除或修改信息。这是通过使用给定数据主体 ID（`person`）的密钥加密数据，并在忘记该数据主体时删除密钥来实现的。Lightbend 的「[GDPR for Akka Persistence](https://developer.lightbend.com/docs/akka-commercial-addons/current/gdpr/index.html)」提供了一些工具来帮助构建支持 GDPR 的系统。
+- **注释**：《通用数据保护条例》（GDPR）要求必须根据用户的请求删除个人信息。删除或修改携带个人信息的事件是困难的。数据分解可以用来忘记信息，而不是删除或修改信息。这是通过使用给定数据主体 ID（`person`）的密钥加密数据，并在忘记该数据主体时删除密钥来实现的。Lightbend 的「[GDPR for Akka Persistence](https://developer.lightbend.com/docs/akka-commercial-addons/current/gdpr/index.html)」提供了一些工具来帮助构建支持 GDPR 的系统。
 
 Akka 持久化的灵感来自于「[eventsourced](https://github.com/eligosource/eventsourced)」库的正式替换。它遵循与`eventsourced`相同的概念和体系结构，但在 API 和实现级别上存在显著差异。另请参见「[migration-eventsourced-2.3](https://doc.akka.io/docs/akka/current/project/migration-guide-eventsourced-2.3.x.html)」。
 
 ## 体系结构
-- `AbstractPersistentActor`：是一个持久的、有状态的 Actor。它能够将事件持久化到日志中，并能够以线程安全的方式对它们作出响应。它可以用于实现命令和事件源 Actor。当一个持久的 Actor 启动或重新启动时，日志消息将重播给该 Actor，以便它可以从这些消息中恢复其状态。
+- `AbstractPersistentActor`：是一个持久的、有状态的 Actor。它能够将事件持久化到日志中，并能够以线程安全的方式对它们作出响应。它可以用于实现命令和事件源 Actor。当一个持久性 Actor 启动或重新启动时，日志消息将重播给该 Actor，以便它可以从这些消息中恢复其状态。
 - `AbstractPersistentActorAtLeastOnceDelivery`：将具有至少一次传递语义的消息发送到目的地，也可以在发送方和接收方 JVM 崩溃的情况下发送。
-- `AsyncWriteJournal`：日志存储发送给持久 Actor 的消息序列。应用程序可以控制哪些消息是日志记录的，哪些消息是由持久 Actor 接收的，而不进行日志记录。日志维护每一条消息上增加的`highestSequenceNr`。日志的存储后端是可插入的。持久性扩展附带了一个`leveldb`日志插件，它将写入本地文件系统。
-- 快照存储区（`Snapshot store`）：快照存储区保存持久 Actor 状态的快照。快照用于优化恢复时间。快照存储的存储后端是可插入的。持久性扩展附带了一个“本地”快照存储插件，该插件将写入本地文件系统。
+- `AsyncWriteJournal`：日志存储发送给持久性 Actor 的消息序列。应用程序可以控制哪些消息是日志记录的，哪些消息是由持久性 Actor 接收的，而不进行日志记录。日志维护每一条消息上增加的`highestSequenceNr`。日志的存储后端是可插入的。持久性扩展附带了一个`leveldb`日志插件，它将写入本地文件系统。
+- 快照存储区（`Snapshot store`）：快照存储区保存持久性 Actor 状态的快照。快照用于优化恢复时间。快照存储的存储后端是可插入的。持久性扩展附带了一个“本地”快照存储插件，该插件将写入本地文件系统。
 - 事件源（`Event sourcing`）：基于上面描述的构建块，Akka 持久化为事件源应用程序的开发提供了抽象（详见「[事件源](https://doc.akka.io/docs/akka/current/persistence.html#event-sourcing)」部分）。
 
 ## 事件源
-请参阅「[EventSourcing](https://docs.microsoft.com/en-us/previous-versions/msp-n-p/jj591559(v=pandp.10))」的介绍，下面是 Akka 通过持久的 Actor 实现的。
+请参阅「[EventSourcing](https://docs.microsoft.com/en-us/previous-versions/msp-n-p/jj591559(v=pandp.10))」的介绍，下面是 Akka 通过持久性 Actor 实现的。
 
-持久性 Actor 接收（非持久性）命令，如果该命令可以应用于当前状态，则首先对其进行验证。在这里，验证可以意味着任何事情，从简单检查命令消息的字段到与几个外部服务的对话。如果验证成功，则从命令生成事件，表示命令的效果。这些事件随后被持久化，并且在成功持久化之后，用于更改 Actor 的状态。当需要恢复持久性 Actor 时，只重播持久性事件，我们知道这些事件可以成功应用。换句话说，与命令相反，事件在被重播到持久的 Actor 时不会失败。事件源 Actor 还可以处理不更改应用程序状态的命令，例如查询命令。
+持久性 Actor 接收（非持久性）命令，如果该命令可以应用于当前状态，则首先对其进行验证。在这里，验证可以意味着任何事情，从简单检查命令消息的字段到与几个外部服务的对话。如果验证成功，则从命令生成事件，表示命令的效果。这些事件随后被持久化，并且在成功持久化之后，用于更改 Actor 的状态。当需要恢复持久性 Actor 时，只重播持久性事件，我们知道这些事件可以成功应用。换句话说，与命令相反，事件在被重播到持久性 Actor 时不会失败。事件源 Actor 还可以处理不更改应用程序状态的命令，例如查询命令。
 
 关于“事件思考”的另一篇优秀文章是 Randy Shoup 的「[Events As First-Class Citizens](https://hackernoon.com/events-as-first-class-citizens-8633e8479493)」。如果你开始开发基于事件的应用程序，这是一个简短的推荐阅读。
 
-Akka 持久化使用`AbstractPersistentActor`抽象类支持事件源。扩展此类的 Actor 使用持久方法来持久化和处理事件。`AbstractPersistentActor`的行为是通过实现`createReceiveRecover`和`createReceive`来定义的。这在下面的示例中进行了演示。
+Akka 持久化使用`AbstractPersistentActor`抽象类支持事件源。扩展此类的 Actor 使用`persist`方法来持久化和处理事件。`AbstractPersistentActor`的行为是通过实现`createReceiveRecover`和`createReceive`来定义的。这在下面的示例中进行了演示。
 
 ```java
 import akka.actor.ActorRef;
@@ -178,9 +178,9 @@ class ExamplePersistentActor extends AbstractPersistentActor {
 
 持久化 Actor 的`createReceiveRecover`方法通过处理`Evt`和`SnapshotOffer`消息来定义在恢复过程中如何更新状态。持久化 Actor 的`createReceive`方法是命令处理程序。在本例中，通过生成一个事件来处理命令，该事件随后被持久化和处理。通过使用事件（或事件序列）作为第一个参数和事件处理程序作为第二个参数调用`persist`来持久化事件。
 
-`persist`方法异步地持久化事件，并为成功持久化的事件执行事件处理程序。成功的持久化事件在内部作为触发事件处理程序执行的单个消息发送回持久化 Actor。事件处理程序可能会关闭持久的 Actor 状态并对其进行改变。持久化事件的发送者是相应命令的发送者。这允许事件处理程序回复命令的发送者（未显示）。
+`persist`方法异步地持久化事件，并为成功持久化的事件执行事件处理程序。成功的持久化事件在内部作为触发事件处理程序执行的单个消息发送回持久化 Actor。事件处理程序可能会关闭持久性 Actor 状态并对其进行改变。持久化事件的发送者是相应命令的发送者。这允许事件处理程序回复命令的发送者（未显示）。
 
-事件处理程序的主要职责是使用事件数据更改持久的 Actor 状态，并通过发布事件通知其他人成功的状态更改。
+事件处理程序的主要职责是使用事件数据更改持久性 Actor 状态，并通过发布事件通知其他人成功的状态更改。
 
 当使用`persist`持久化事件时，可以确保持久化 Actor 不会在`persist`调用和关联事件处理程序的执行之间接收进一步的命令。这也适用于单个命令上下文中的多个`persist`调用。传入的消息将被存储，直到持久化完成。
 
@@ -202,7 +202,7 @@ public String persistenceId() {
 - **注释**：`persistenceId`对于日志中的给定实体（数据库表/键空间）必须是唯一的。当重播持久化到日志的消息时，你将查询具有`persistenceId`的消息。因此，如果两个不同的实体共享相同的`persistenceId`，则消息重播行为已损坏。
 
 ### 恢复
-默认情况下，通过重放日志消息，在启动和重新启动时自动恢复持久性 Actor。在恢复期间发送给持久性 Actor 的新消息不会干扰重播的消息。在恢复阶段完成后，它们被一个持久的 Actor 存放和接收。
+默认情况下，通过重放日志消息，在启动和重新启动时自动恢复持久性 Actor。在恢复期间发送给持久性 Actor 的新消息不会干扰重播的消息。在恢复阶段完成后，它们被一个持久性 Actor 存放和接收。
 
 可以同时进行的并发恢复的数量限制为不使系统和后端数据存储过载。当超过限制时，Actor 将等待其他恢复完成。配置方式为：
 
@@ -212,9 +212,7 @@ akka.persistence.max-concurrent-recoveries = 50
 - **注释**：假设原始发件人已经很长时间不在，那么使用`getSender()`访问已重播消息的发件人将始终导致`deadLetters`引用。如果在将来的恢复过程中确实需要通知某个 Actor，请将其`ActorPath`显式存储在持久化事件中。
 
 ### 恢复自定义
-应用程序还可以通过在`AbstractPersistentActor`的`recovery`方法中返回自定义的`Recovery`对象来定制恢复的执行方式，
-
-要跳过加载快照和重播所有事件，可以使用`SnapshotSelectionCriteria.none()`。如果快照序列化格式以不兼容的方式更改，则此选项非常有用。它通常不应该在事件被删除时使用。
+应用程序还可以通过在`AbstractPersistentActor`的`recovery`方法中返回自定义的`Recovery`对象来定制恢复的执行方式，要跳过加载快照和重播所有事件，可以使用`SnapshotSelectionCriteria.none()`。如果快照序列化格式以不兼容的方式更改，则此选项非常有用。它通常不应该在事件被删除时使用。
 
 ```java
 @Override
@@ -287,14 +285,14 @@ class MyPersistentActor5 extends AbstractPersistentActor {
 如果从日志中恢复 Actor 的状态时出现问题，则调用`onRecoveryFailure`（默认情况下记录错误），Actor 将停止。
 
 ### 内部存储
-持久性 Actor 有一个私有存储区，用于在恢复期间对传入消息进行内部缓存，或者`persist\persistAll`方法持久化事件。你仍然可以从`Stash`接口`use/inherit`。内部存储（`internal stash`）与正常存储进行合作，通过`unstashAll`方法并确保消息正确地`unstashed`到内部存储以维持顺序保证。
+持久性 Actor 有一个私有存储区，用于在恢复期间对传入消息进行内部缓存，或者通过`persist\persistAll`方法持久化事件。你仍然可以从`Stash`接口`use/inherit`。内部存储（`internal stash`）与正常存储进行合作，通过`unstashAll`方法并确保消息正确地`unstashed`到内部存储以维持顺序保证。
 
 你应该小心，不要向持久性 Actor 发送超过它所能跟上的消息，否则隐藏的消息的数量将无限增长。通过在邮箱配置中定义最大存储容量来防止`OutOfMemoryError`是明智的：
 
 ```
 akka.actor.default-mailbox.stash-capacity=10000
 ```
-注意，其是每个 Actor 的藏匿存储容量（`stash capacity`）。如果你有许多持久的 Actor，例如在使用集群分片（`cluster sharding`）时，你可能需要定义一个小的存储容量，以确保系统中存储的消息总数不会消耗太多的内存。此外，持久性 Actor 定义了三种策略来处理超过内部存储容量时的故障。默认的溢出策略是`ThrowOverflowExceptionStrategy`，它丢弃当前接收到的消息并抛出`StashOverflowException`，如果使用默认的监视策略，则会导致 Actor 重新启动。你可以重写`internalStashOverflowStrategy`方法，为任何“单个（`individual`）”持久 Actor 返回`DiscardToDeadLetterStrategy`或`ReplyToStrategy`，或者通过提供 FQCN 为所有持久 Actor 定义“默认值”，FQCN 必须是持久配置中`StashOverflowStrategyConfigurator`的子类：
+注意，其是每个 Actor 的藏匿存储容量（`stash capacity`）。如果你有许多持久性 Actor，例如在使用集群分片（`cluster sharding`）时，你可能需要定义一个小的存储容量，以确保系统中存储的消息总数不会消耗太多的内存。此外，持久性 Actor 定义了三种策略来处理超过内部存储容量时的故障。默认的溢出策略是`ThrowOverflowExceptionStrategy`，它丢弃当前接收到的消息并抛出`StashOverflowException`，如果使用默认的监视策略，则会导致 Actor 重新启动。你可以重写`internalStashOverflowStrategy`方法，为任何“单个（`individual`）”持久性 Actor 返回`DiscardToDeadLetterStrategy`或`ReplyToStrategy`，或者通过提供 FQCN 为所有持久性 Actor 定义“默认值”，FQCN 必须是持久配置中`StashOverflowStrategyConfigurator`的子类：
 
 ```
 akka.persistence.internal-stash-overflow-strategy=
@@ -313,7 +311,7 @@ Persistence.get(getContext().getSystem()).defaultInternalStashOverflowStrategy()
 ### Relaxed 本地一致性需求和高吞吐量用例
 如果面对`relaxed`本地一致性和高吞吐量要求，有时`PersistentActor`及其`persist`在高速使用传入命令方面可能不够，因为它必须等到与给定命令相关的所有事件都被处理后才能开始处理下一个命令。虽然这种抽象在大多数情况下都非常有用，但有时你可能会面临关于一致性的`relaxed`要求——例如，你可能希望尽可能快地处理命令，假设事件最终将在后台被持久化并正确处理，如果需要，可以对持久性失败进行逆向反应（`retroactively reacting`）。
 
-`persistAsync`方法提供了一个工具来实现高吞吐量的持久 Actor。当日志仍在处理持久化`and/or`用户代码正在执行事件回调时，它不会存储传入的命令。
+`persistAsync`方法提供了一个工具来实现高吞吐量的持久性 Actor。当日志仍在处理持久化`and/or`用户代码正在执行事件回调时，它不会存储传入的命令。
 
 在下面的示例中，即使在处理下一个命令之后，事件回调也可以“任何时候”调用。事件之间的顺序仍然是有保证的（`evt-b-1`将在`evt-a-2`之后发送，也将在`evt-a-1`之后发送）。
 
@@ -508,7 +506,7 @@ persistentActor.tell("b", ActorRef.noSender());
 // b-inner-1
 // b-inner-2
 ```
-首先，发出持久调用的“外层”，并应用它们的回调。成功完成这些操作后，将调用内部回调（一旦日志确认了它们所持续的事件是持久的）。只有在成功地调用了所有这些处理程序之后，才能将下一个命令传递给持久 Actor。换句话说，通过最初在外层上调用`persist()`来保证输入命令的存储被扩展，直到所有嵌套的`persist`回调都被处理完毕。
+首先，发出持久调用的“外层”，并应用它们的回调。成功完成这些操作后，将调用内部回调（一旦日志确认了它们所持续的事件是持久的）。只有在成功地调用了所有这些处理程序之后，才能将下一个命令传递给持久性 Actor。换句话说，通过最初在外层上调用`persist()`来保证输入命令的存储被扩展，直到所有嵌套的`persist`回调都被处理完毕。
 
 也可以使用相同的模式嵌套`persistAsync`调用：
 
@@ -595,13 +593,13 @@ public void preStart() throws Exception {
 为了在使用`persistAsync`时优化吞吐量，持久性 Actor 在将事件写入日志（作为单个批处理）之前在内部批处理要在高负载下存储的事件。批（`batch`）的大小由日志往返期间发出的事件数动态确定：向日志发送批之后，在收到上一批已写入的确认信息之前，不能再发送其他批。批写入从不基于计时器，它将延迟保持在最小值。
 
 ### 消息删除
-可以在指定的序列号之前删除所有消息（由单个持久 Actor 记录）；持久 Actor 可以为此端调用`deleteMessages`方法。
+可以在指定的序列号之前删除所有消息（由单个持久性 Actor 记录）；持久性 Actor 可以为此端调用`deleteMessages`方法。
 
 在基于事件源的应用程序中删除消息通常要么根本不使用，要么与快照一起使用，即在成功存储快照之后，可以发出一条`deleteMessages(toSequenceNr)`消息。
 
 - **警告**：如果你使用「[持久性查询](https://doc.akka.io/docs/akka/current/persistence-query.html)」，查询结果可能会丢失日志中已删除的消息，这取决于日志插件中如何实现删除。除非你使用的插件在持久性查询结果中仍然显示已删除的消息，否则你必须设计应用程序，使其不受丢失消息的影响。
 
-在持久 Actor 发出`deleteMessages`消息之后，如果删除成功，则向持久 Actor 发送`DeleteMessagesSuccess`消息，如果删除失败，则向持久 Actor 发送`DeleteMessagesFailure`消息。
+在持久性 Actor 发出`deleteMessages`消息之后，如果删除成功，则向持久性 Actor 发送`DeleteMessagesSuccess`消息，如果删除失败，则向持久性 Actor 发送`DeleteMessagesFailure`消息。
 
 消息删除不会影响日志的最高序列号，即使在调用`deleteMessages`之后从日志中删除了所有消息。
 
@@ -787,7 +785,7 @@ public Receive createReceiveRecover() {
 ```
 在`SnapshotOffer`消息之后重播的消息（如果有）比提供的快照状态年轻（`younger`）。他们最终将持久性 Actor 恢复到当前（即最新）状态。
 
-通常，只有在持久 Actor 以前保存过一个或多个快照，并且其中至少一个快照与可以指定用于恢复的`SnapshotSelectionCriteria`匹配时，才会提供持久 Actor 快照。
+通常，只有在持久性 Actor 以前保存过一个或多个快照，并且其中至少一个快照与可以指定用于恢复的`SnapshotSelectionCriteria`匹配时，才会提供持久性 Actor 快照。
 
 ```java
 @Override
@@ -798,15 +796,15 @@ public Recovery recovery() {
 ```
 如果未指定，则默认为`SnapshotSelectionCriteria.latest()`，后者选择最新的（最年轻的）快照。要禁用基于快照的恢复，应用程序应使用`SnapshotSelectionCriteria.none()`。如果没有保存的快照与指定的`SnapshotSelectionCriteria`匹配，则恢复将重播所有日志消息。
 
-- **注释**：为了使用快照，必须配置默认的快照存储（`akka.persistence.snapshot-store.plugin`），或者持久 Actor 可以通过重写`String snapshotPluginId()`显式地选择快照存储。由于某些应用程序可以不使用任何快照，因此不配置快照存储是合法的。但是，当检测到这种情况时，Akka 会记录一条警告消息，然后继续操作，直到 Actor 尝试存储快照，此时操作将失败（例如，通过使用`SaveSnapshotFailure`进行响应）。注意集群分片（`Cluster Sharding`）的“持久性模式”使用快照。如果使用该模式，则需要定义快照存储插件。
+- **注释**：为了使用快照，必须配置默认的快照存储（`akka.persistence.snapshot-store.plugin`），或者持久性 Actor 可以通过重写`String snapshotPluginId()`显式地选择快照存储。由于某些应用程序可以不使用任何快照，因此不配置快照存储是合法的。但是，当检测到这种情况时，Akka 会记录一条警告消息，然后继续操作，直到 Actor 尝试存储快照，此时操作将失败（例如，通过使用`SaveSnapshotFailure`进行响应）。注意集群分片（`Cluster Sharding`）的“持久性模式”使用快照。如果使用该模式，则需要定义快照存储插件。
 
 ### 快照删除
 持久性 Actor 可以通过使用快照拍摄时间的序列号调用`deleteSnapshot`方法来删除单个快照。
 
-要批量删除与`SnapshotSelectionCriteria`匹配的一系列快照，持久 Actor 应使用`deleteSnapshots`方法。根据所用的日志，这可能是低效的。最佳做法是使用`deleteSnapshot`执行特定的删除，或者为`SnapshotSelectionCriteria`包含`minSequenceNr`和`maxSequenceNr`。
+要批量删除与`SnapshotSelectionCriteria`匹配的一系列快照，持久性 Actor 应使用`deleteSnapshots`方法。根据所用的日志，这可能是低效的。最佳做法是使用`deleteSnapshot`执行特定的删除，或者为`SnapshotSelectionCriteria`包含`minSequenceNr`和`maxSequenceNr`。
 
 ### 快照状态处理
-保存或删除快照既可以成功，也可以失败，此信息通过状态消息报告给持久 Actor，如下表所示：
+保存或删除快照既可以成功，也可以失败，此信息通过状态消息报告给持久性 Actor，如下表所示：
 
 | Method | Success      | Failure message |
 |:--------| :-------------| :-------------|
@@ -1014,7 +1012,7 @@ akka.persistence.journal {
 
 Akka 社区项目页面提供了持久性日志和快照存储插件的目录，请参阅「[社区插件](https://akka.io/community/)」。
 
-插件可以通过“默认”为所有持久 Actor 的选择，也可以在持久 Actor 定义自己的插件集时“单独”选择。
+插件可以通过“默认”为所有持久性 Actor 的选择，也可以在持久性 Actor 定义自己的插件集时“单独”选择。
 
 当持久性 Actor 不重写`journalPluginId`和`snapshotPluginId`方法时，持久性扩展将使用`reference.conf`中配置的“默认”日志和快照存储插件：
 
@@ -1103,7 +1101,7 @@ akka.persistence.journal.leveldb.compaction-intervals {
 }
 ```
 ### 共享 LevelDB 日记
-一个 LevelDB 实例也可以由多个 Actor 系统（在同一个或不同的节点上）共享。例如，这允许持久 Actor 故障转移到备份节点，并继续从备份节点使用共享日志实例。
+一个 LevelDB 实例也可以由多个 Actor 系统（在同一个或不同的节点上）共享。例如，这允许持久性 Actor 故障转移到备份节点，并继续从备份节点使用共享日志实例。
 
 - **警告**：共享的 LevelDB 实例是一个单一的故障点，因此只能用于测试目的。
 - **注释**：此插件已被「[Persistence Plugin Proxy](https://doc.akka.io/docs/akka/current/persistence.html#persistence-plugin-proxy)」取代。
@@ -1154,7 +1152,7 @@ class SharedStorageUsage extends AbstractActor {
   }
 }
 ```
-内部日志命令（由持久 Actor 发送）被缓冲，直到注入完成。注入是幂等的，即只使用第一次注入。
+内部日志命令（由持久性 Actor 发送）被缓冲，直到注入完成。注入是幂等的，即只使用第一次注入。
 
 ### 本地快照存储
 本地快照存储（`local snapshot store`）插件配置条目为`akka.persistence.snapshot-store.local`。它将快照文件写入本地文件系统。通过定义配置属性启用此插件：
@@ -1171,7 +1169,7 @@ akka.persistence.snapshot-store.local.dir = "target/snapshots"
 请注意，不必指定快照存储插件。如果不使用快照，则无需对其进行配置。
 
 ### 持久化插件代理
-持久化插件代理（`persistence plugin proxy`）允许跨多个 Actor 系统（在相同或不同节点上）共享日志和快照存储。例如，这允许持久 Actor 故障转移到备份节点，并继续从备份节点使用共享日志实例。代理的工作方式是将所有日志/快照存储消息转发到一个共享的持久性插件实例，因此支持代理插件支持的任何用例。
+持久化插件代理（`persistence plugin proxy`）允许跨多个 Actor 系统（在相同或不同节点上）共享日志和快照存储。例如，这允许持久性 Actor 故障转移到备份节点，并继续从备份节点使用共享日志实例。代理的工作方式是将所有日志/快照存储消息转发到一个共享的持久性插件实例，因此支持代理插件支持的任何用例。
 
 - **警告**：共享日志/快照存储是单一故障点，因此应仅用于测试目的。
 

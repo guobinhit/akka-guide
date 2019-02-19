@@ -1,5 +1,6 @@
 package sample.cluster.factorial;
 
+import akka.cluster.Cluster;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import akka.actor.ActorSystem;
@@ -23,7 +24,5 @@ public class FactorialBackendMain {
         system.actorOf(Props.create(FactorialBackend.class), "factorialBackend");
 
         system.actorOf(Props.create(MetricsListener.class), "metricsListener");
-
     }
-
 }

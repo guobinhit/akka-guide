@@ -33,8 +33,7 @@ public class TransformationFrontendMain {
 
         ActorSystem system = ActorSystem.create("ClusterSystem", config);
 
-        final ActorRef frontend = system.actorOf(
-                Props.create(TransformationFrontend.class), "frontend");
+        final ActorRef frontend = system.actorOf(Props.create(TransformationFrontend.class), "frontend");
         final FiniteDuration interval = Duration.create(2, TimeUnit.SECONDS);
         final Timeout timeout = new Timeout(Duration.create(5, TimeUnit.SECONDS));
         final ExecutionContext ec = system.dispatcher();

@@ -9,13 +9,10 @@ package sample.persistence;
 import akka.actor.ActorRef;
 import akka.actor.ActorSystem;
 import akka.actor.Props;
-import akka.persistence.AbstractPersistentActor;
-import akka.persistence.SnapshotOffer;
+import akka.persistence.*;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-
-import static java.util.Arrays.asList;
 
 class Cmd implements Serializable {
     private static final long serialVersionUID = 1L;
@@ -93,11 +90,25 @@ class ExamplePersistentActor extends AbstractPersistentActor {
         return "sample-id-1";
     }
 
+    /**
+     * If we override recovery() method,
+     * and return Recovery.none() can close recover behave
+     * @return Recovery
+     */
+    @Override
+    public Recovery recovery() {
+        return Recovery.none();
+    }
+
     @Override
     public Receive createReceiveRecover() {
         return receiveBuilder()
                 .match(Evt.class, e -> state.update(e))
-                .match(SnapshotOffer.class, ss -> state = (ExampleState) ss.snapshot())
+//                .match(SnapshotOffer.class, ss -> state = (ExampleState) ss.snapshot())
+                .match(SnapshotOffer.class, ss -> {
+                    System.out.println("Hello guy, try recover actor state!");
+                    state = (ExampleState) ss.snapshot();
+                })
                 .build();
     }
 
@@ -113,6 +124,13 @@ class ExamplePersistentActor extends AbstractPersistentActor {
                     });
                 })
                 .matchEquals("snap", s -> saveSnapshot(state.copy()))
+                /**
+                 * when saveSnapshot method execute success,
+                 * persistence actor will receive SaveSnapshotSuccess message
+                 * else if failure, persistence actor will receive SaveSnapshotFailure message
+                 */
+                .match(SaveSnapshotSuccess.class, sss -> System.out.println("Save Snapshot Success!"))
+                .match(SaveSnapshotFailure.class, sss -> System.out.println("Save Snapshot Failure!"))
                 .matchEquals("print", s -> System.out.println(state))
                 .matchEquals("clear", s -> state.clearEvents())
                 .build();
@@ -125,15 +143,16 @@ public class PersistentActorExample {
     public static void main(String... args) throws Exception {
         final ActorSystem system = ActorSystem.create("example");
         final ActorRef persistentActor = system.actorOf(Props.create(ExamplePersistentActor.class), "persistentActor-4-java8");
-//        persistentActor.tell(new Cmd("foo"), null);
-//        persistentActor.tell(new Cmd("baz"), null);
-//        persistentActor.tell(new Cmd("bar"), null);
-//        persistentActor.tell("snap", null);
-//        persistentActor.tell(new Cmd("buzz"), null);
-        persistentActor.tell("print", null);
-        persistentActor.tell("clear", ActorRef.noSender());
+        persistentActor.tell(new Cmd("foo"), null);
+        persistentActor.tell(new Cmd("baz"), null);
+        persistentActor.tell(new Cmd("bar"), null);
+        persistentActor.tell("snap", null);
+        persistentActor.tell(new Cmd("buzz"), null);
         persistentActor.tell("print", null);
 
+//        persistentActor.tell("clear", ActorRef.noSender());
+//        persistentActor.tell("snap", null);
+//        persistentActor.tell("print", null);
 
         Thread.sleep(10000);
         system.terminate();

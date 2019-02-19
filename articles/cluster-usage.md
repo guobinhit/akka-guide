@@ -25,7 +25,7 @@ dependencies {
 libraryDependencies += "com.typesafe.akka" %% "akka-cluster" % "2.5.19"
 ```
 
-## 简单的项目
+## 示例项目
 你可以查看「[集群示例](https://developer.lightbend.com/start/?group=akka&project=akka-samples-cluster-java)」项目，以了解 Akka 集群的实际使用情况。
 
 ## 何时何地使用 Akka 集群？
@@ -161,7 +161,7 @@ Actor 将自己注册为某些集群事件的订阅者。它在订阅开始时�
 
 ## 联接到种子节点
 
-- **注释**：当在云系统上启动集群时，如 Kubernetes、AWS、Google Cloud,、Azure、Mesos 或其他维护 DNS 或其他发现节点的方式，你可能希望使用开源「[Akka Cluster Bootstrap](https://developer.lightbend.com/docs/akka-management/current/bootstrap/index.html)」模块实现的自动加入过程。
+- **注释**：当在云系统上启动集群时，如 Kubernetes、AWS、Google Cloud、Azure、Mesos 或其他维护 DNS 或其他发现节点的方式，你可能希望使用开源「[Akka Cluster Bootstrap](https://developer.lightbend.com/docs/akka-management/current/bootstrap/index.html)」模块实现的自动加入过程。
 
 ### 联接已配置的种子节点
 你可以决定是手动加入集群，还是自动加入到配置的初始接触点，即所谓的种子节点。在连接过程之后，种子节点并不特殊，它们以与其他节点完全相同的方式参与集群。
