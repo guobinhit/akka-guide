@@ -1,899 +1,51 @@
-# 持久化
+# Actors
 ## 依赖
-为了使用 Akka 持久化（`Persistence`）功能，你必须在项目中添加如下依赖：
+
+为了使用 Actors，你必须在项目中添加如下依赖：
 
 ```xml
 <!-- Maven -->
 <dependency>
   <groupId>com.typesafe.akka</groupId>
-  <artifactId>akka-persistence_2.12</artifactId>
-  <version>2.5.20</version>
+  <artifactId>akka-actor_2.12</artifactId>
+  <version>2.5.21</version>
 </dependency>
 
 <!-- Gradle -->
 dependencies {
-  compile group: 'com.typesafe.akka', name: 'akka-persistence_2.12', version: '2.5.20'
+  compile group: 'com.typesafe.akka', name: 'akka-actor_2.12', version: '2.5.21'
 }
 
 <!-- sbt -->
-libraryDependencies += "com.typesafe.akka" %% "akka-persistence" % "2.5.20"
+libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.21"
 ```
-Akka 持久性扩展附带了一些内置持久性插件，包括基于内存堆的日志、基于本地文件系统的快照存储和基于 LevelDB 的日志。
-
-基于 LevelDB 的插件需要以下附加依赖：
-```xml
-<!-- Maven -->
-<dependency>
-  <groupId>org.fusesource.leveldbjni</groupId>
-  <artifactId>leveldbjni-all</artifactId>
-  <version>1.8</version>
-</dependency>
-
-<!-- Gradle -->
-dependencies {
-  compile group: 'org.fusesource.leveldbjni', name: 'leveldbjni-all', version: '1.8'
-}
-
-<!-- sbt -->
-libraryDependencies += "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8"
-```
-## 示例项目
-你可以查看「[持久化示例](https://developer.lightbend.com/start/?group=akka&project=akka-samples-persistence-java)」项目，以了解 Akka 持久化的实际使用情况。
 
 ## 简介
-Akka 持久性使有状态的 Actor 能够持久化其状态，以便在 Actor 重新启动（例如，在 JVM 崩溃之后）、由监督者或手动停止启动或迁移到集群中时可以恢复状态。Akka 持久性背后的关键概念是，只有 Actor 接收到的事件才被持久化，而不是 Actor 的实际状态（尽管也提供了 Actor 状态快照支持）。事件通过附加到存储（没有任何变化）来持久化，这允许非常高的事务速率和高效的复制。有状态的 Actor 通过将存储的事件重放给 Actor 来恢复，从而允许它重建其状态。这可以是更改的完整历史记录，也可以从快照中的检查点开始，这样可以显著缩短恢复时间。Akka  持久化（`persistence`）还提供具有至少一次消息传递（`at-least-once message delivery `）语义的点对点（`point-to-point`）通信。
 
-- **注释**：《通用数据保护条例》（GDPR）要求必须根据用户的请求删除个人信息。删除或修改携带个人信息的事件是困难的。数据分解可以用来忘记信息，而不是删除或修改信息。这是通过使用给定数据主体 ID（`person`）的密钥加密数据，并在忘记该数据主体时删除密钥来实现的。Lightbend 的「[GDPR for Akka Persistence](https://developer.lightbend.com/docs/akka-commercial-addons/current/gdpr/index.html)」提供了一些工具来帮助构建支持 GDPR 的系统。
+「[Actor Model](https://en.wikipedia.org/wiki/Actor_model)」为编写并发和分布式系统提供了更高级别的抽象。它减少了开发人员必须处理显式锁和线程管理的问题，使编写正确的并发和并行系统变得更容易。1973 年卡尔·休伊特（`Carl Hewitt`）在论文中定义了 Actors，然后通过  Erlang 语言所普及，并且在爱立信（`Ericsson`）成功地建立了高度并发和可靠的电信系统。
 
-Akka 持久化的灵感来自于「[eventsourced](https://github.com/eligosource/eventsourced)」库的正式替换。它遵循与`eventsourced`相同的概念和体系结构，但在 API 和实现级别上存在显著差异。另请参见「[migration-eventsourced-2.3](https://doc.akka.io/docs/akka/current/project/migration-guide-eventsourced-2.3.x.html)」。
+Akka 的 Actors API 类似于 Scala Actors，它从 Erlang 中借用了一些语法。
 
-## 体系结构
-- `AbstractPersistentActor`：是一个持久的、有状态的 Actor。它能够将事件持久化到日志中，并能够以线程安全的方式对它们作出响应。它可以用于实现命令和事件源 Actor。当一个持久性 Actor 启动或重新启动时，日志消息将重播给该 Actor，以便它可以从这些消息中恢复其状态。
-- `AbstractPersistentActorAtLeastOnceDelivery`：将具有至少一次传递语义的消息发送到目的地，也可以在发送方和接收方 JVM 崩溃的情况下发送。
-- `AsyncWriteJournal`：日志存储发送给持久性 Actor 的消息序列。应用程序可以控制哪些消息是日志记录的，哪些消息是由持久性 Actor 接收的，而不进行日志记录。日志维护每一条消息上增加的`highestSequenceNr`。日志的存储后端是可插入的。持久性扩展附带了一个`leveldb`日志插件，它将写入本地文件系统。
-- 快照存储区（`Snapshot store`）：快照存储区保存持久性 Actor 状态的快照。快照用于优化恢复时间。快照存储的存储后端是可插入的。持久性扩展附带了一个“本地”快照存储插件，该插件将写入本地文件系统。
-- 事件源（`Event sourcing`）：基于上面描述的构建块，Akka 持久化为事件源应用程序的开发提供了抽象（详见「[事件源](https://doc.akka.io/docs/akka/current/persistence.html#event-sourcing)」部分）。
+## 创建 Actors
 
-## 事件源
-请参阅「[EventSourcing](https://docs.microsoft.com/en-us/previous-versions/msp-n-p/jj591559(v=pandp.10))」的介绍，下面是 Akka 通过持久性 Actor 实现的。
+由于 Akka 实施父级（`parental`）监督，每个 Actor 都受到其父级的监督并且监督其子级，因此建议你熟悉「[Actor Systems](https://doc.akka.io/docs/akka/current/general/actor-systems.html)」和「[Supervision](https://doc.akka.io/docs/akka/current/general/supervision.htm)」，它还可能有助于阅读「[Actor References, Paths and Addresses](https://doc.akka.io/docs/akka/current/general/addressing.html)」。
 
-持久性 Actor 接收（非持久性）命令，如果该命令可以应用于当前状态，则首先对其进行验证。在这里，验证可以意味着任何事情，从简单检查命令消息的字段到与几个外部服务的对话。如果验证成功，则从命令生成事件，表示命令的效果。这些事件随后被持久化，并且在成功持久化之后，用于更改 Actor 的状态。当需要恢复持久性 Actor 时，只重播持久性事件，我们知道这些事件可以成功应用。换句话说，与命令相反，事件在被重播到持久性 Actor 时不会失败。事件源 Actor 还可以处理不更改应用程序状态的命令，例如查询命令。
 
-关于“事件思考”的另一篇优秀文章是 Randy Shoup 的「[Events As First-Class Citizens](https://hackernoon.com/events-as-first-class-citizens-8633e8479493)」。如果你开始开发基于事件的应用程序，这是一个简短的推荐阅读。
+### 定义 Actor 类
 
-Akka 持久化使用`AbstractPersistentActor`抽象类支持事件源。扩展此类的 Actor 使用`persist`方法来持久化和处理事件。`AbstractPersistentActor`的行为是通过实现`createReceiveRecover`和`createReceive`来定义的。这在下面的示例中进行了演示。
+Actor 类是通过继承`AbstractActor`类并在`createReceive`方法中设置“初始行为”来实现的。
+
+`createReceive`方法没有参数，并返回`AbstractActor.Receive`。它定义了 Actor 可以处理哪些消息，以及如何处理消息的实现。可以使用名为`ReceiveBuilder`的生成器来构建此类行为。在`AbstractActor`中，有一个名为`receiveBuilder`的方便的工厂方法。
+
+下面是一个例子：
 
 ```java
-import akka.actor.ActorRef;
-import akka.actor.ActorSystem;
-import akka.actor.Props;
-import akka.persistence.AbstractPersistentActor;
-import akka.persistence.SnapshotOffer;
-
-import java.io.Serializable;
-import java.util.ArrayList;
-
-class Cmd implements Serializable {
-  private static final long serialVersionUID = 1L;
-  private final String data;
-
-  public Cmd(String data) {
-    this.data = data;
-  }
-
-  public String getData() {
-    return data;
-  }
-}
-
-class Evt implements Serializable {
-  private static final long serialVersionUID = 1L;
-  private final String data;
-
-  public Evt(String data) {
-    this.data = data;
-  }
-
-  public String getData() {
-    return data;
-  }
-}
-
-class ExampleState implements Serializable {
-  private static final long serialVersionUID = 1L;
-  private final ArrayList<String> events;
-
-  public ExampleState() {
-    this(new ArrayList<>());
-  }
-
-  public ExampleState(ArrayList<String> events) {
-    this.events = events;
-  }
-
-  public ExampleState copy() {
-    return new ExampleState(new ArrayList<>(events));
-  }
-
-  public void update(Evt evt) {
-    events.add(evt.getData());
-  }
-
-  public int size() {
-    return events.size();
-  }
-
-  @Override
-  public String toString() {
-    return events.toString();
-  }
-}
-
-class ExamplePersistentActor extends AbstractPersistentActor {
-
-  private ExampleState state = new ExampleState();
-  private int snapShotInterval = 1000;
-
-  public int getNumEvents() {
-    return state.size();
-  }
-
-  @Override
-  public String persistenceId() {
-    return "sample-id-1";
-  }
-
-  @Override
-  public Receive createReceiveRecover() {
-    return receiveBuilder()
-        .match(Evt.class, state::update)
-        .match(SnapshotOffer.class, ss -> state = (ExampleState) ss.snapshot())
-        .build();
-  }
-
-  @Override
-  public Receive createReceive() {
-    return receiveBuilder()
-        .match(
-            Cmd.class,
-            c -> {
-              final String data = c.getData();
-              final Evt evt = new Evt(data + "-" + getNumEvents());
-              persist(
-                  evt,
-                  (Evt e) -> {
-                    state.update(e);
-                    getContext().getSystem().getEventStream().publish(e);
-                    if (lastSequenceNr() % snapShotInterval == 0 && lastSequenceNr() != 0)
-                      // IMPORTANT: create a copy of snapshot because ExampleState is mutable
-                      saveSnapshot(state.copy());
-                  });
-            })
-        .matchEquals("print", s -> System.out.println(state))
-        .build();
-  }
-}
-```
-该示例定义了两种数据类型，即`Cmd`和`Evt`，分别表示命令和事件。`ExamplePersistentActor`的状态是包含在`ExampleState`中的持久化事件数据的列表。
-
-持久化 Actor 的`createReceiveRecover`方法通过处理`Evt`和`SnapshotOffer`消息来定义在恢复过程中如何更新状态。持久化 Actor 的`createReceive`方法是命令处理程序。在本例中，通过生成一个事件来处理命令，该事件随后被持久化和处理。通过使用事件（或事件序列）作为第一个参数和事件处理程序作为第二个参数调用`persist`来持久化事件。
-
-`persist`方法异步地持久化事件，并为成功持久化的事件执行事件处理程序。成功的持久化事件在内部作为触发事件处理程序执行的单个消息发送回持久化 Actor。事件处理程序可能会关闭持久性 Actor 状态并对其进行改变。持久化事件的发送者是相应命令的发送者。这允许事件处理程序回复命令的发送者（未显示）。
-
-事件处理程序的主要职责是使用事件数据更改持久性 Actor 状态，并通过发布事件通知其他人成功的状态更改。
-
-当使用`persist`持久化事件时，可以确保持久化 Actor 不会在`persist`调用和关联事件处理程序的执行之间接收进一步的命令。这也适用于单个命令上下文中的多个`persist`调用。传入的消息将被存储，直到持久化完成。
-
-如果事件的持久性失败，将调用`onPersistFailure`（默认情况下记录错误），并且 Actor 将无条件停止。如果在存储事件之前拒绝了该事件的持久性，例如，由于序列化错误，将调用`onPersistRejected`（默认情况下记录警告），并且 Actor 将继续执行下一条消息。
-
-运行这个例子最简单的方法是自己下载准备好的「[ Akka 持久性示例](https://example.lightbend.com/v1/download/akka-samples-persistence-java)」和教程。它包含有关如何运行`PersistentActorExample`的说明。此示例的源代码也可以在「[Akka 示例仓库](https://developer.lightbend.com/start/?group=akka&project=akka-samples-persistence-java)」中找到。
-
-- **注释**：在使用`getContext().become()`和`getContext().unbecome()`进行正常处理和恢复期间，还可以在不同的命令处理程序之间切换。要使 Actor 在恢复后进入相同的状态，你需要特别注意在`createReceiveRecover`方法中使用`become`和`unbecome`执行相同的状态转换，就像在命令处理程序中那样。请注意，当使用来自`createReceiveRecover`的`become`时，在重播事件时，它仍然只使用`createReceiveRecover`行为。重播完成后，将使用新行为。
-
-### 标识符
-持久性 Actor 必须有一个标识符（`identifier`），该标识符在不同的 Actor 化身之间不会发生变化。必须使用`persistenceId`方法定义标识符。
-
-```java
-@Override
-public String persistenceId() {
-  return "my-stable-persistence-id";
-}
-```
-- **注释**：`persistenceId`对于日志中的给定实体（数据库表/键空间）必须是唯一的。当重播持久化到日志的消息时，你将查询具有`persistenceId`的消息。因此，如果两个不同的实体共享相同的`persistenceId`，则消息重播行为已损坏。
-
-### 恢复
-默认情况下，通过重放日志消息，在启动和重新启动时自动恢复持久性 Actor。在恢复期间发送给持久性 Actor 的新消息不会干扰重播的消息。在恢复阶段完成后，它们被一个持久性 Actor 存放和接收。
-
-可以同时进行的并发恢复的数量限制为不使系统和后端数据存储过载。当超过限制时，Actor 将等待其他恢复完成。配置方式为：
-
-```
-akka.persistence.max-concurrent-recoveries = 50
-```
-- **注释**：假设原始发件人已经很长时间不在，那么使用`getSender()`访问已重播消息的发件人将始终导致`deadLetters`引用。如果在将来的恢复过程中确实需要通知某个 Actor，请将其`ActorPath`显式存储在持久化事件中。
-
-### 恢复自定义
-应用程序还可以通过在`AbstractPersistentActor`的`recovery`方法中返回自定义的`Recovery`对象来定制恢复的执行方式，要跳过加载快照和重播所有事件，可以使用`SnapshotSelectionCriteria.none()`。如果快照序列化格式以不兼容的方式更改，则此选项非常有用。它通常不应该在事件被删除时使用。
-
-```java
-@Override
-public Recovery recovery() {
-  return Recovery.create(SnapshotSelectionCriteria.none());
-}
-```
-另一种可能的恢复自定义（对调试有用）是在重播上设置上限，使 Actor 仅在“过去”的某个点上重播（而不是重播到其最新状态）。请注意，在这之后，保留新事件是一个坏主意，因为以后的恢复可能会被以前跳过的事件后面的新事件混淆。
-
-```java
-@Override
-public Recovery recovery() {
-  return Recovery.create(457L);
-}
-```
-通过在`PersistentActor`的`recovery`方法中返回`Recovery.none()`可以关闭恢复：
-
-```java
-@Override
-public Recovery recovery() {
-  return Recovery.none();
-}
-```
-### 恢复状态
-通过以下方法，持久性 Actor 可以查询其自己的恢复状态：
-
-```java
-public boolean recoveryRunning();
-
-public boolean recoveryFinished();
-```
-有时候，在处理发送给持久性 Actor 的任何其他消息之前，当恢复完成时，需要执行额外的初始化。持久性 Actor 将在恢复之后和任何其他收到的消息之前收到一条特殊的`RecoveryCompleted`消息。
-
-```java
-class MyPersistentActor5 extends AbstractPersistentActor {
-
-  @Override
-  public String persistenceId() {
-    return "my-stable-persistence-id";
-  }
-
-  @Override
-  public Receive createReceiveRecover() {
-    return receiveBuilder()
-        .match(
-            RecoveryCompleted.class,
-            r -> {
-              // perform init after recovery, before any other messages
-              // ...
-            })
-        .match(String.class, this::handleEvent)
-        .build();
-  }
-
-  @Override
-  public Receive createReceive() {
-    return receiveBuilder()
-        .match(String.class, s -> s.equals("cmd"), s -> persist("evt", this::handleEvent))
-        .build();
-  }
-
-  private void handleEvent(String event) {
-    // update state
-    // ...
-  }
-}
-```
-即使日志中没有事件且快照存储为空，或者是具有以前未使用的`persistenceId`的新持久性 Actor，Actor 也将始终收到`RecoveryCompleted`消息。
-
-如果从日志中恢复 Actor 的状态时出现问题，则调用`onRecoveryFailure`（默认情况下记录错误），Actor 将停止。
-
-### 内部存储
-持久性 Actor 有一个私有存储区，用于在恢复期间对传入消息进行内部缓存，或者通过`persist\persistAll`方法持久化事件。你仍然可以从`Stash`接口`use/inherit`。内部存储（`internal stash`）与正常存储进行合作，通过`unstashAll`方法并确保消息正确地`unstashed`到内部存储以维持顺序保证。
-
-你应该小心，不要向持久性 Actor 发送超过它所能跟上的消息，否则隐藏的消息的数量将无限增长。通过在邮箱配置中定义最大存储容量来防止`OutOfMemoryError`是明智的：
-
-```
-akka.actor.default-mailbox.stash-capacity=10000
-```
-注意，其是每个 Actor 的藏匿存储容量（`stash capacity`）。如果你有许多持久性 Actor，例如在使用集群分片（`cluster sharding`）时，你可能需要定义一个小的存储容量，以确保系统中存储的消息总数不会消耗太多的内存。此外，持久性 Actor 定义了三种策略来处理超过内部存储容量时的故障。默认的溢出策略是`ThrowOverflowExceptionStrategy`，它丢弃当前接收到的消息并抛出`StashOverflowException`，如果使用默认的监视策略，则会导致 Actor 重新启动。你可以重写`internalStashOverflowStrategy`方法，为任何“单个（`individual`）”持久性 Actor 返回`DiscardToDeadLetterStrategy`或`ReplyToStrategy`，或者通过提供 FQCN 为所有持久性 Actor 定义“默认值”，FQCN 必须是持久配置中`StashOverflowStrategyConfigurator`的子类：
-
-```
-akka.persistence.internal-stash-overflow-strategy=
-  "akka.persistence.ThrowExceptionConfigurator"
-```
-`DiscardToDeadLetterStrategy`策略还具有预打包（`pre-packaged`）的伴生配置程序`akka.persistence.DiscardConfigurator`。
-
-你还可以通过 Akka 的持久性扩展查询默认策略：
-
-```java
-Persistence.get(getContext().getSystem()).defaultInternalStashOverflowStrategy();
-```
-
-- **注释**：在持久性 Actor 中，应避免使用有界的邮箱（`bounded mailbox`），否则来自存储后端的消息可能会被丢弃。你可以用有界的存储（`bounded stash`）来代替它。
-
-### Relaxed 本地一致性需求和高吞吐量用例
-如果面对`relaxed`本地一致性和高吞吐量要求，有时`PersistentActor`及其`persist`在高速使用传入命令方面可能不够，因为它必须等到与给定命令相关的所有事件都被处理后才能开始处理下一个命令。虽然这种抽象在大多数情况下都非常有用，但有时你可能会面临关于一致性的`relaxed`要求——例如，你可能希望尽可能快地处理命令，假设事件最终将在后台被持久化并正确处理，如果需要，可以对持久性失败进行逆向反应（`retroactively reacting`）。
-
-`persistAsync`方法提供了一个工具来实现高吞吐量的持久性 Actor。当日志仍在处理持久化`and/or`用户代码正在执行事件回调时，它不会存储传入的命令。
-
-在下面的示例中，即使在处理下一个命令之后，事件回调也可以“任何时候”调用。事件之间的顺序仍然是有保证的（`evt-b-1`将在`evt-a-2`之后发送，也将在`evt-a-1`之后发送）。
-
-```java
-class MyPersistentActor extends AbstractPersistentActor {
-
-  @Override
-  public String persistenceId() {
-    return "my-stable-persistence-id";
-  }
-
-  private void handleCommand(String c) {
-    getSender().tell(c, getSelf());
-
-    persistAsync(
-        String.format("evt-%s-1", c),
-        e -> {
-          getSender().tell(e, getSelf());
-        });
-    persistAsync(
-        String.format("evt-%s-2", c),
-        e -> {
-          getSender().tell(e, getSelf());
-        });
-  }
-
-  @Override
-  public Receive createReceiveRecover() {
-    return receiveBuilder().match(String.class, this::handleCommand).build();
-  }
-
-  @Override
-  public Receive createReceive() {
-    return receiveBuilder().match(String.class, this::handleCommand).build();
-  }
-}
-```
-- **注释**：为了实现名为“命令源（`command sourcing`）”的模式，请立即对所有传入消息调用`persistAsync`，并在回调中处理它们。
-- **警告**：如果在对`persistAsync`的调用和日志确认写入之间重新启动或停止 Actor，则不会调用回调。
-
-### 推迟操作，直到执行了前面的持久处理程序
-有时候，在处理`persistAsync`或`persist`时，你可能会发现，最好定义一些“在调用以前的`persistAsync/persist`处理程序之后发生”的操作。`PersistentActor`提供了名为`defer`和`deferAsync`的实用方法，它们分别与`persist`和`persistAsync`工作类似，但不会持久化传入事件。建议将它们用于读取操作，在域模型中没有相应事件的操作。
-
-使用这些方法与持久化方法非常相似，但它们不会持久化传入事件。它将保存在内存中，并在调用处理程序时使用。
-
-```java
-class MyPersistentActor extends AbstractPersistentActor {
-
-  @Override
-  public String persistenceId() {
-    return "my-stable-persistence-id";
-  }
-
-  private void handleCommand(String c) {
-    persistAsync(
-        String.format("evt-%s-1", c),
-        e -> {
-          getSender().tell(e, getSelf());
-        });
-    persistAsync(
-        String.format("evt-%s-2", c),
-        e -> {
-          getSender().tell(e, getSelf());
-        });
-
-    deferAsync(
-        String.format("evt-%s-3", c),
-        e -> {
-          getSender().tell(e, getSelf());
-        });
-  }
-
-  @Override
-  public Receive createReceiveRecover() {
-    return receiveBuilder().match(String.class, this::handleCommand).build();
-  }
-
-  @Override
-  public Receive createReceive() {
-    return receiveBuilder().match(String.class, this::handleCommand).build();
-  }
-}
-```
-请注意，`sender()`在处理程序回调中是安全的，它将指向调用此`defer`或`deferAsync`处理程序的命令的原始发送者。
-
-调用方将按此（保证）顺序得到响应：
-
-```java
-final ActorRef persistentActor = system.actorOf(Props.create(MyPersistentActor.class));
-persistentActor.tell("a", sender);
-persistentActor.tell("b", sender);
-
-// order of received messages:
-// a
-// b
-// evt-a-1
-// evt-a-2
-// evt-a-3
-// evt-b-1
-// evt-b-2
-// evt-b-3
-```
-你也可以在调用`persist`时，调用`defer`或者`deferAsync`：
-```java
-class MyPersistentActor extends AbstractPersistentActor {
-
-  @Override
-  public String persistenceId() {
-    return "my-stable-persistence-id";
-  }
-
-  private void handleCommand(String c) {
-    persist(
-        String.format("evt-%s-1", c),
-        e -> {
-          sender().tell(e, self());
-        });
-    persist(
-        String.format("evt-%s-2", c),
-        e -> {
-          sender().tell(e, self());
-        });
-
-    defer(
-        String.format("evt-%s-3", c),
-        e -> {
-          sender().tell(e, self());
-        });
-  }
-
-  @Override
-  public Receive createReceiveRecover() {
-    return receiveBuilder().match(String.class, this::handleCommand).build();
-  }
-
-  @Override
-  public Receive createReceive() {
-    return receiveBuilder().match(String.class, this::handleCommand).build();
-  }
-}
-```
-
-- **警告**：如果在对`defer`或`deferAsync`的调用之间重新启动或停止 Actor，并且日志已经处理并确认了前面的所有写入操作，则不会调用回调。
-
-### 嵌套的持久调用
-可以在各自的回调块中调用`persist`和`persistAsync`，它们将正确地保留线程安全性（包括`getSender()`的正确值）和存储保证。
-
-一般来说，鼓励创建不需要使用嵌套事件持久化的命令处理程序，但是在某些情况下，它可能会有用。了解这些情况下回调执行的顺序以及它们对隐藏行为（`persist()`强制执行）的影响是很重要的。在下面的示例中，发出了两个持久调用，每个持久调用在其回调中发出另一个持久调用：
-
-```java
-@Override
-public Receive createReceiveRecover() {
-  final Procedure<String> replyToSender = event -> getSender().tell(event, getSelf());
-
-  return receiveBuilder()
-      .match(
-          String.class,
-          msg -> {
-            persist(
-                String.format("%s-outer-1", msg),
-                event -> {
-                  getSender().tell(event, getSelf());
-                  persist(String.format("%s-inner-1", event), replyToSender);
-                });
-
-            persist(
-                String.format("%s-outer-2", msg),
-                event -> {
-                  getSender().tell(event, getSelf());
-                  persist(String.format("%s-inner-2", event), replyToSender);
-                });
-          })
-      .build();
-}
-```
-向此`PersistentActor`发送两个命令时，将按以下顺序执行持久化处理程序：
-
-```java
-persistentActor.tell("a", ActorRef.noSender());
-persistentActor.tell("b", ActorRef.noSender());
-
-// order of received messages:
-// a
-// a-outer-1
-// a-outer-2
-// a-inner-1
-// a-inner-2
-// and only then process "b"
-// b
-// b-outer-1
-// b-outer-2
-// b-inner-1
-// b-inner-2
-```
-首先，发出持久调用的“外层”，并应用它们的回调。成功完成这些操作后，将调用内部回调（一旦日志确认了它们所持续的事件是持久的）。只有在成功地调用了所有这些处理程序之后，才能将下一个命令传递给持久性 Actor。换句话说，通过最初在外层上调用`persist()`来保证输入命令的存储被扩展，直到所有嵌套的`persist`回调都被处理完毕。
-
-也可以使用相同的模式嵌套`persistAsync`调用：
-
-```java
-@Override
-public Receive createReceive() {
-  final Procedure<String> replyToSender = event -> getSender().tell(event, getSelf());
-
-  return receiveBuilder()
-      .match(
-          String.class,
-          msg -> {
-            persistAsync(
-                String.format("%s-outer-1", msg),
-                event -> {
-                  getSender().tell(event, getSelf());
-                  persistAsync(String.format("%s-inner-1", event), replyToSender);
-                });
-
-            persistAsync(
-                String.format("%s-outer-2", msg),
-                event -> {
-                  getSender().tell(event, getSelf());
-                  persistAsync(String.format("%s-inner-1", event), replyToSender);
-                });
-          })
-      .build();
-}
-```
-在这种情况下，不会发生存储，但事件仍将持续，并且按预期顺序执行回调：
-
-```java
-persistentActor.tell("a", getSelf());
-persistentActor.tell("b", getSelf());
-
-// order of received messages:
-// a
-// b
-// a-outer-1
-// a-outer-2
-// b-outer-1
-// b-outer-2
-// a-inner-1
-// a-inner-2
-// b-inner-1
-// b-inner-2
-
-// which can be seen as the following causal relationship:
-// a -> a-outer-1 -> a-outer-2 -> a-inner-1 -> a-inner-2
-// b -> b-outer-1 -> b-outer-2 -> b-inner-1 -> b-inner-2
-```
-尽管可以通过保持各自的语义来嵌套混合`persist`和`persistAsync`，但这不是推荐的做法，因为这可能会导致嵌套过于复杂。
-
-- **警告**：虽然可以在彼此内部嵌套`persist`调用，但从 Actor 消息处理线程以外的任何其他线程调用`persist`都是非法的。例如，通过`Futures`调用`persist`就是非法的！这样做将打破`persist`方法旨在提供的保证，应该始终从 Actor 的接收块（`receive block`）中调用`persist`和`persistAsync`。
-
-### 失败
-如果事件的持久性失败，将调用`onPersistFailure`（默认情况下记录错误），并且 Actor 将无条件停止。
-
-当`persist`失败时，它无法恢复的原因是不知道事件是否实际持续，因此处于不一致状态。由于日志可能不可用，在持续失败时重新启动很可能会失败。最好是停止 Actor，然后在退后超时后重新启动。提供`akka.pattern.BackoffSupervisor` Actor 以支持此类重新启动。
-
-```java
-@Override
-public void preStart() throws Exception {
-  final Props childProps = Props.create(MyPersistentActor1.class);
-  final Props props =
-      BackoffSupervisor.props(
-          childProps, "myActor", Duration.ofSeconds(3), Duration.ofSeconds(30), 0.2);
-  getContext().actorOf(props, "mySupervisor");
-  super.preStart();
-}
-```
-如果在存储事件之前拒绝了该事件的持久性，例如，由于序列化错误，将调用`onPersistRejected`（默认情况下记录警告），并且 Actor 将继续执行下一条消息。
-
-如果在启动 Actor 时无法从日志中恢复 Actor 的状态，将调用`onRecoveryFailure`（默认情况下记录错误），并且 Actor 将被停止。请注意，加载快照失败也会像这样处理，但如果你知道序列化格式已以不兼容的方式更改，则可以禁用快照加载，请参阅「[恢复自定义](#https://doc.akka.io/docs/akka/current/persistence.html#recovery-custom)」。
-
-### 原子写入
-每个事件都是原子存储的（`stored atomically`），但也可以使用`persistAll`或`persistAllAsync`方法原子存储多个事件。这意味着传递给该方法的所有事件都将被存储，或者在出现错误时不存储任何事件。
-
-因此，持久性 Actor 的恢复永远不会只在`persistAll`持久化事件的一个子集的情况下部分完成。
-
-有些日志可能不支持几个事件的原子写入（`atomic writes`），它们将拒绝`persistAll`命令，例如调用`OnPersistRejected`时出现异常（通常是`UnsupportedOperationException`）。
-
-### 批量写入
-为了在使用`persistAsync`时优化吞吐量，持久性 Actor 在将事件写入日志（作为单个批处理）之前在内部批处理要在高负载下存储的事件。批（`batch`）的大小由日志往返期间发出的事件数动态确定：向日志发送批之后，在收到上一批已写入的确认信息之前，不能再发送其他批。批写入从不基于计时器，它将延迟保持在最小值。
-
-### 消息删除
-可以在指定的序列号之前删除所有消息（由单个持久性 Actor 记录）；持久性 Actor 可以为此端调用`deleteMessages`方法。
-
-在基于事件源的应用程序中删除消息通常要么根本不使用，要么与快照一起使用，即在成功存储快照之后，可以发出一条`deleteMessages(toSequenceNr)`消息。
-
-- **警告**：如果你使用「[持久性查询](https://doc.akka.io/docs/akka/current/persistence-query.html)」，查询结果可能会丢失日志中已删除的消息，这取决于日志插件中如何实现删除。除非你使用的插件在持久性查询结果中仍然显示已删除的消息，否则你必须设计应用程序，使其不受丢失消息的影响。
-
-在持久性 Actor 发出`deleteMessages`消息之后，如果删除成功，则向持久性 Actor 发送`DeleteMessagesSuccess`消息，如果删除失败，则向持久性 Actor 发送`DeleteMessagesFailure`消息。
-
-消息删除不会影响日志的最高序列号，即使在调用`deleteMessages`之后从日志中删除了所有消息。
-
-### 持久化状态处理
-持久化、删除和重放消息可以成功，也可以失败。
-
-| Method | Success      |
-|:--------| :-------------|
-| `persist / persistAsync` |调用持久化处理器 |
-| `onPersistRejected` |无自动行为|
-| `recovery` |`RecoveryCompleted` |
-| `deleteMessages` |`DeleteMessagesSuccess` |
-
-最重要的操作（`persist`和`recovery`）将故障处理程序建模为显式回调，用户可以在`PersistentActor`中重写该回调。这些处理程序的默认实现会发出一条日志消息（`persist`或`recovery`失败的`error`），记录失败原因和有关导致失败的消息的信息。
-
-对于严重的故障（如恢复或持久化事件失败），在调用故障处理程序后将停止持久性 Actor。这是因为，如果底层日志实现发出持久性失败的信号，那么它很可能要么完全失败，要么过载并立即重新启动，然后再次尝试持久性事件，这很可能不会帮助日志恢复，因为它可能会导致一个「[Thundering herd](https://en.wikipedia.org/wiki/Thundering_herd_problem)」问题，因为许多持久性 Actor 会重新启动并尝试继续他们的活动。相反，使用`BackoffSupervisor`，它实现了一个指数级的退避（`exponential-backoff`）策略，允许持久性 Actor 在重新启动之间有更多的喘息空间。
-
-- **注释**：日志实现可以选择实现重试机制，例如，只有在写入失败`N`次之后，才会向用户发出持久化失败的信号。换句话说，一旦一个日志返回一个失败，它就被 Akka 持久化认为是致命的，导致失败的持久行 Actor 将被停止。检查你正在使用的日志实现文档，了解它是否或如何使用此技术。
-
-### 安全地关闭持久性 Actor
-当从外部关闭持久性 Actor 时，应该特别小心。对于正常的 Actor，通常可以接受使用特殊的`PoisonPill`消息来向 Actor 发出信号，一旦收到此信息，它就应该停止自己。事实上，此消息是由 Akka 自动处理的。
-
-当与`PersistentActor`一起使用时，这可能很危险。由于传入的命令将从 Actor 的邮箱中排出，并在等待确认时放入其内部存储（在调用持久处理程序之前），因此 Actor 可以在处理已放入其存储的其他消息之前接收和（自动）处理`PoisonPill`，从而导致 Actor 的提前（`pre-mature`）停止。
-
-- **警告**：当与持久性 Actor 一起工作时，考虑使用明确的关闭消息而不是使用`PoisonPill`。
-
-下面的示例强调了消息如何到达 Actor 的邮箱，以及在使用`persist()`时它们如何与其内部存储机制交互。注意，使用`PoisonPill`时可能发生的早期停止行为：
-
-```java
-final class Shutdown {}
-
-class MyPersistentActor extends AbstractPersistentActor {
-  @Override
-  public String persistenceId() {
-    return "some-persistence-id";
-  }
-
-  @Override
-  public Receive createReceive() {
-    return receiveBuilder()
-        .match(
-            Shutdown.class,
-            shutdown -> {
-              getContext().stop(getSelf());
-            })
-        .match(
-            String.class,
-            msg -> {
-              System.out.println(msg);
-              persist("handle-" + msg, e -> System.out.println(e));
-            })
-        .build();
-  }
-
-  @Override
-  public Receive createReceiveRecover() {
-    return receiveBuilder().matchAny(any -> {}).build();
-  }
-}
-```
-
-```java
-// UN-SAFE, due to PersistentActor's command stashing:
-persistentActor.tell("a", ActorRef.noSender());
-persistentActor.tell("b", ActorRef.noSender());
-persistentActor.tell(PoisonPill.getInstance(), ActorRef.noSender());
-// order of received messages:
-// a
-//   # b arrives at mailbox, stashing;        internal-stash = [b]
-//   # PoisonPill arrives at mailbox, stashing; internal-stash = [b, Shutdown]
-// PoisonPill is an AutoReceivedMessage, is handled automatically
-// !! stop !!
-// Actor is stopped without handling `b` nor the `a` handler!
-```
-
-```java
-// SAFE:
-persistentActor.tell("a", ActorRef.noSender());
-persistentActor.tell("b", ActorRef.noSender());
-persistentActor.tell(new Shutdown(), ActorRef.noSender());
-// order of received messages:
-// a
-//   # b arrives at mailbox, stashing;        internal-stash = [b]
-//   # Shutdown arrives at mailbox, stashing; internal-stash = [b, Shutdown]
-// handle-a
-//   # unstashing;                            internal-stash = [Shutdown]
-// b
-// handle-b
-//   # unstashing;                            internal-stash = []
-// Shutdown
-// -- stop --
-```
-### 重播滤波器
-在某些情况下，事件流可能已损坏，并且多个写入程序（即多个持久性 Actor 实例）使用相同的序列号记录不同的消息。在这种情况下，你可以配置如何在恢复时过滤来自多个编写器（`writers`）的重播（`replayed`）消息。
-
-在你的配置中，在`akka.persistence.journal.xxx.replay-filter`部分（其中`xxx`是日志插件`id`）下，你可以从以下值中选择重播过滤器（`replay filter`）的模式：
-
-- `repair-by-discard-old`
-- `fail`
-- `warn`
-- `off`
-
-例如，如果为 LevelDB 插件配置重播过滤器，则如下所示：
-
-```
-# The replay filter can detect a corrupt event stream by inspecting
-# sequence numbers and writerUuid when replaying events.
-akka.persistence.journal.leveldb.replay-filter {
-  # What the filter should do when detecting invalid events.
-  # Supported values:
-  # `repair-by-discard-old` : discard events from old writers,
-  #                           warning is logged
-  # `fail` : fail the replay, error is logged
-  # `warn` : log warning but emit events untouched
-  # `off` : disable this feature completely
-  mode = repair-by-discard-old
-}
-```
-## 快照
-当你使用 Actor 建模你的域时，你可能会注意到一些 Actor 可能会积累非常长的事件日志并经历很长的恢复时间。有时，正确的方法可能是分成一组生命周期较短的 Actor。但是，如果这不是一个选项，你可以使用快照（`snapshots`）来大幅缩短恢复时间。
-
-持久性 Actor 可以通过调用`saveSnapshot`方法来保存内部状态的快照。如果快照保存成功，持久性 Actor 将收到`SaveSnapshotSuccess`消息，否则将收到`SaveSnapshotFailure`消息。
-
-```java
-private Object state;
-private int snapShotInterval = 1000;
-
-@Override
-public Receive createReceive() {
-  return receiveBuilder()
-      .match(
-          SaveSnapshotSuccess.class,
-          ss -> {
-            SnapshotMetadata metadata = ss.metadata();
-            // ...
-          })
-      .match(
-          SaveSnapshotFailure.class,
-          sf -> {
-            SnapshotMetadata metadata = sf.metadata();
-            // ...
-          })
-      .match(
-          String.class,
-          cmd -> {
-            persist(
-                "evt-" + cmd,
-                e -> {
-                  updateState(e);
-                  if (lastSequenceNr() % snapShotInterval == 0 && lastSequenceNr() != 0)
-                    saveSnapshot(state);
-                });
-          })
-      .build();
-}
-```
-其中，`metadata`的类型为`SnapshotMetadata`：
-
-```java
-final case class SnapshotMetadata(persistenceId: String, sequenceNr: Long, timestamp: Long = 0L)
-```
-在恢复过程中，通过`SnapshotOffer`消息向持久性 Actor 提供以前保存的快照，从中可以初始化内部状态。
-
-```java
-private Object state;
-
-@Override
-public Receive createReceiveRecover() {
-  return receiveBuilder()
-      .match(
-          SnapshotOffer.class,
-          s -> {
-            state = s.snapshot();
-            // ...
-          })
-      .match(
-          String.class,
-          s -> {
-            /* ...*/
-          })
-      .build();
-}
-```
-在`SnapshotOffer`消息之后重播的消息（如果有）比提供的快照状态年轻（`younger`）。他们最终将持久性 Actor 恢复到当前（即最新）状态。
-
-通常，只有在持久性 Actor 以前保存过一个或多个快照，并且其中至少一个快照与可以指定用于恢复的`SnapshotSelectionCriteria`匹配时，才会提供持久性 Actor 快照。
-
-```java
-@Override
-public Recovery recovery() {
-  return Recovery.create(
-      SnapshotSelectionCriteria.create(457L, System.currentTimeMillis()));
-}
-```
-如果未指定，则默认为`SnapshotSelectionCriteria.latest()`，后者选择最新的（最年轻的）快照。要禁用基于快照的恢复，应用程序应使用`SnapshotSelectionCriteria.none()`。如果没有保存的快照与指定的`SnapshotSelectionCriteria`匹配，则恢复将重播所有日志消息。
-
-- **注释**：为了使用快照，必须配置默认的快照存储（`akka.persistence.snapshot-store.plugin`），或者持久性 Actor 可以通过重写`String snapshotPluginId()`显式地选择快照存储。由于某些应用程序可以不使用任何快照，因此不配置快照存储是合法的。但是，当检测到这种情况时，Akka 会记录一条警告消息，然后继续操作，直到 Actor 尝试存储快照，此时操作将失败（例如，通过使用`SaveSnapshotFailure`进行响应）。注意集群分片（`Cluster Sharding`）的“持久性模式”使用快照。如果使用该模式，则需要定义快照存储插件。
-
-### 快照删除
-持久性 Actor 可以通过使用快照拍摄时间的序列号调用`deleteSnapshot`方法来删除单个快照。
-
-要批量删除与`SnapshotSelectionCriteria`匹配的一系列快照，持久性 Actor 应使用`deleteSnapshots`方法。根据所用的日志，这可能是低效的。最佳做法是使用`deleteSnapshot`执行特定的删除，或者为`SnapshotSelectionCriteria`包含`minSequenceNr`和`maxSequenceNr`。
-
-### 快照状态处理
-保存或删除快照既可以成功，也可以失败，此信息通过状态消息报告给持久性 Actor，如下表所示：
-
-| Method | Success      | Failure message |
-|:--------| :-------------| :-------------|
-| `saveSnapshot(Any)` |`SaveSnapshotSuccess` |`SaveSnapshotFailure` |
-| `deleteSnapshot(Long)` |`DeleteSnapshotSuccess`|`DeleteSnapshotFailure` |
-| `deleteSnapshots(SnapshotSelectionCriteria)` |`DeleteSnapshotsSuccess` |`DeleteSnapshotsFailure` |
-
-如果 Actor 未处理故障消息，则将为每个传入的故障消息记录默认的警告日志消息。不会对成功消息执行默认操作，但是你可以自由地处理它们，例如，为了删除快照的内存中表示形式，或者在尝试再次保存快照失败的情况下。
-
-## 扩容
-在一个用例中，如果需要的持久性 Actor 的数量高于一个节点的内存中所能容纳的数量，或者弹性很重要，因此如果一个节点崩溃，那么持久性 Actor 很快就会在一个新节点上启动，并且可以恢复操作，那么「[集群分片](https://doc.akka.io/docs/akka/current/cluster-sharding.html)」非常适合将持久性 Actor 通过他们的`id`分散到集群和地址上。
-
-Akka 持久化（`persistence`）是基于单写入（`single-writer`）原则的。对于特定的`persistenceId`，一次只能激活一个`PersistentActor`实例。如果多个实例同时持久化事件，那么这些事件将被交错，并且在重播时可能无法正确解释。集群分片确保数据中心内每个`id`只有一个活动实体（`PersistentActor`）。LightBend 的「[Multi-DC Persistence](https://developer.lightbend.com/docs/akka-commercial-addons/current/persistence-dc/index.html)」支持跨数据中心的双活（`active-active`）持久性实体。
-
-在 Akka 之上构建的「[Lagom](https://www.lagomframework.com/)」框架编码了许多与此相关的最佳实践。有关更多详细信息，请参阅 Lagom 文档中的「[Managing Data Persistence](https://www.lagomframework.com/documentation/current/java/ES_CQRS.html)」和「[Persistent Entity](https://www.lagomframework.com/documentation/current/java/PersistentEntity.html)」。
-
-### 至少一次传递
-要将具有至少一次传递（`at-least-once delivery`）语义的消息发送到目标，可以使用`AbstractPersistentActorWithAtLeastOnceDelivery`，而不是在发送端扩展`AbstractPersistentActor`。当消息在可配置的超时时间内未被确认时，它负责重新发送消息。
-
-发送 Actor 的状态，包括那些已发送但未被接收者确认的消息，必须是持久的，这样它才能在发送 Actor 或 JVM 崩溃后存活下来。`AbstractPersistentActorWithAtLeastOnceDelivery`类本身不持久任何内容。
-
-- **注释**：至少有一次传递意味着原始消息发送顺序并不总是保持不变，并且目标可能接收到重复的消息。该语义与普通`ActorRef`发送操作的语义不匹配：
-  - 至少一次传递
-  - 同一“发送方和接收者”对的消息顺序由于可能的重发而不被保留
-  - 在崩溃和目标 Actor 的重新启动之后，消息仍然被传递给新的 Actor 化身。
-
-这些语义类似于`ActorPath`所表示的含义，因此在传递消息时需要提供路径而不是引用。消息将与 Actor 选择（`selection`）一起发送到路径。
-
-使用`deliver`方法将消息发送到目标。当目标已用确认消息答复时，调用`confirmDelivery`方法。
-
-###  deliver 与 confirmDelivery 的关系
-若要将消息发送到目标路径，请在持久化发送消息的意图之后使用`deliver`方法。
-
-目标 Actor 必须返回确认消息。当发送 Actor 收到此确认消息时，你应该持久化消息已成功传递的事实，然后调用`confirmDelivery`方法。
-
-如果持久性 Actor 当前未恢复，则`deliver`方法将消息发送到目标 Actor。恢复时，将缓冲消息，直到使用`confirmDelivery`确认消息。一旦恢复完成，如果有未确认的未完成消息（在消息重播期间），持久性 Actor 将在发送任何其他消息之前重新发送这些消息。
-
-传递需要`deliveryIdToMessage`函数将提供的`deliveryId`传递到消息中，以便`deliver`和`confirmDelivery`之间的关联成为可能。`deliveryId`必须在传递之间往返。在收到消息后，目标 Actor 会将包装在确认消息中的相同`deliveryId`发送回发送者。然后，发送方将使用它调用`confirmDelivery`方法来完成传递过程。
-
-```java
-class Msg implements Serializable {
-  private static final long serialVersionUID = 1L;
-  public final long deliveryId;
-  public final String s;
-
-  public Msg(long deliveryId, String s) {
-    this.deliveryId = deliveryId;
-    this.s = s;
-  }
-}
-
-class Confirm implements Serializable {
-  private static final long serialVersionUID = 1L;
-  public final long deliveryId;
-
-  public Confirm(long deliveryId) {
-    this.deliveryId = deliveryId;
-  }
-}
-
-class MsgSent implements Serializable {
-  private static final long serialVersionUID = 1L;
-  public final String s;
-
-  public MsgSent(String s) {
-    this.s = s;
-  }
-}
-
-class MsgConfirmed implements Serializable {
-  private static final long serialVersionUID = 1L;
-  public final long deliveryId;
-
-  public MsgConfirmed(long deliveryId) {
-    this.deliveryId = deliveryId;
-  }
-}
-
-class MyPersistentActor extends AbstractPersistentActorWithAtLeastOnceDelivery {
-  private final ActorSelection destination;
-
-  public MyPersistentActor(ActorSelection destination) {
-    this.destination = destination;
-  }
-
-  @Override
-  public String persistenceId() {
-    return "persistence-id";
-  }
+import akka.actor.AbstractActor;
+import akka.event.Logging;
+import akka.event.LoggingAdapter;
+
+public class MyActor extends AbstractActor {
+  private final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
 
   @Override
   public Receive createReceive() {
@@ -901,236 +53,402 @@ class MyPersistentActor extends AbstractPersistentActorWithAtLeastOnceDelivery {
         .match(
             String.class,
             s -> {
-              persist(new MsgSent(s), evt -> updateState(evt));
+              log.info("Received String message: {}", s);
             })
-        .match(
-            Confirm.class,
-            confirm -> {
-              persist(new MsgConfirmed(confirm.deliveryId), evt -> updateState(evt));
-            })
+        .matchAny(o -> log.info("received unknown message"))
         .build();
   }
-
-  @Override
-  public Receive createReceiveRecover() {
-    return receiveBuilder().match(Object.class, evt -> updateState(evt)).build();
-  }
-
-  void updateState(Object event) {
-    if (event instanceof MsgSent) {
-      final MsgSent evt = (MsgSent) event;
-      deliver(destination, deliveryId -> new Msg(deliveryId, evt.s));
-    } else if (event instanceof MsgConfirmed) {
-      final MsgConfirmed evt = (MsgConfirmed) event;
-      confirmDelivery(evt.deliveryId);
-    }
-  }
 }
+```
 
-class MyDestination extends AbstractActor {
+请注意，Akka Actor 消息循环是彻底的（`exhaustive`），与 Erlang 和后 Scala Actors 相比，它是不同的。这意味着你需要为它可以接受的所有消息提供一个模式匹配，如果你希望能够处理未知消息，那么你需要有一个默认情况，如上例所示。否则，`akka.actor.UnhandledMessage(message, sender, recipient)`将发布到`ActorSystem`的`EventStream`。
+
+请进一步注意，上面定义的行为的返回类型是`Unit`；如果 Actor 应回复收到的消息，则必须按照下面的说明显式完成。
+
+`createReceive`方法的结果是`AbstractActor.Receive`，它是围绕部分 Scala 函数对象的包装。它作为其“初始行为”存储在 Actor 中，有关在 Actor 构造后更改其行为的详细信息，请参见「[Become/Unbecome](https://doc.akka.io/docs/akka/current/actors.html#become-unbecome)」。
+
+### Props
+
+`Props`是一个配置类，用于指定创建 Actor 的选项，将其视为不可变的，因此可以自由共享用于创建 Actor 的方法，包括关联的部署信息（例如，要使用哪个调度程序，请参阅下面的更多内容）。下面是一些如何创建`Props`实例的示例。
+
+```java
+import akka.actor.Props;
+Props props1 = Props.create(MyActor.class);
+Props props2 =
+    Props.create(ActorWithArgs.class, () -> new ActorWithArgs("arg")); // careful, see below
+Props props3 = Props.create(ActorWithArgs.class, "arg");
+```
+
+第二个变量演示了如何将构造函数参数传递给正在创建的 Actor，但它只能在 Actor 之外使用，如下所述。
+
+最后一行显示了传递构造函数参数的可能性，而不管它在哪个上下文中使用。在`Props`对象的构造过程中，会验证是否存在匹配的构造函数，如果未找到匹配的构造函数或找到多个匹配的构造函数，则会导致`IllegalArgumentException`。
+
+### 危险的变体
+
+```java
+// NOT RECOMMENDED within another actor:
+// encourages to close over enclosing class
+Props props7 = Props.create(ActorWithArgs.class, () -> new ActorWithArgs("arg"));
+```
+
+不建议在另一个 Actor 中使用此方法，因为它鼓励关闭封闭范围，从而导致不可序列化的属性和可能的竞态条件（破坏 Actor 封装）。另一方面，在 Actor 的同伴对象（`companion object`）中的`Props`工厂中使用这个变体是完全正确的，如下面的“推荐实践”中所述。
+
+这些方法有两个用例：将构造函数参数传递给由新引入的`Props.create(clazz, args)`方法或下面的推荐实践解决的 Actor，并将 Actor “就地（`on the spot`）”创建为匿名类。后者应该通过将这些 Actor 命名为类来解决（如果它们没有在顶级`object`中声明，则需要将封闭实例的`this`引用作为第一个参数传递）。
+
+- **警告**：在另一个 Actor 中声明一个 Actor 是非常危险的，并且会破坏 Actor 的封装。千万不要把 Actor 的`this`引用传给`Props`！
+
+### 推荐实践
+
+为每个 Actor 提供静态工厂方法是一个好主意，这有助于使合适的`Props`创建尽可能接近 Actor 的定义。这也避免了与使用`Props.create(...)`方法相关联的陷阱，该方法将参数作为构造函数参数，因为在静态方法中，给定的代码块不会保留对其封闭范围的引用：
+
+```java
+static class DemoActor extends AbstractActor {
+  /**
+   * Create Props for an actor of this type.
+   *
+   * @param magicNumber The magic number to be passed to this actor’s constructor.
+   * @return a Props for creating this actor, which can then be further configured (e.g. calling
+   *     `.withDispatcher()` on it)
+   */
+  static Props props(Integer magicNumber) {
+    // You need to specify the actual type of the returned actor
+    // since Java 8 lambdas have some runtime type information erased
+    return Props.create(DemoActor.class, () -> new DemoActor(magicNumber));
+  }
+
+  private final Integer magicNumber;
+
+  public DemoActor(Integer magicNumber) {
+    this.magicNumber = magicNumber;
+  }
+
   @Override
   public Receive createReceive() {
     return receiveBuilder()
         .match(
-            Msg.class,
-            msg -> {
-              // ...
-              getSender().tell(new Confirm(msg.deliveryId), getSelf());
+            Integer.class,
+            i -> {
+              getSender().tell(i + magicNumber, getSelf());
+            })
+        .build();
+  }
+}
+
+static class SomeOtherActor extends AbstractActor {
+  // Props(new DemoActor(42)) would not be safe
+  ActorRef demoActor = getContext().actorOf(DemoActor.props(42), "demo");
+  // ...
+}
+```
+
+另一个好的做法是声明 Actor 可以接收的消息尽可能接近 Actor 的定义（例如，作为 Actor 内部的静态类或使用其他合适的类），这使得更容易知道它可以接收到什么：
+
+```java
+static class DemoMessagesActor extends AbstractLoggingActor {
+
+  public static class Greeting {
+    private final String from;
+
+    public Greeting(String from) {
+      this.from = from;
+    }
+
+    public String getGreeter() {
+      return from;
+    }
+  }
+
+  @Override
+  public Receive createReceive() {
+    return receiveBuilder()
+        .match(
+            Greeting.class,
+            g -> {
+              log().info("I was greeted by {}", g.getGreeter());
             })
         .build();
   }
 }
 ```
-持久化模块生成的`deliveryId`是严格单调递增的序列号，没有间隙。相同的序列用于 Actor 的所有目的地，即当发送到多个目的地时，目的地将看到序列中的间隙。无法使用自定义`deliveryId`。但是，你可以将消息中的自定义关联标识符发送到目标。然后必须在内部`deliveryId`（传递到`deliveryIdToMessage`函数）和自定义关联`id`（传递到消息）之间保留映射。你可以通过将此类映射存储在一个`Map(correlationId -> deliveryId)`中来实现这一点，从该映射中，你可以在消息的接收者用你的自定义关联`id`答复之后，检索要传递到`confirmDelivery`方法的`deliveryId`。
 
-`AbstractPersistentActorWithAtLeastOnceDelivery`类的状态由未确认的消息和序列号组成。它不存储此状态本身。你必须持久化与`PersistentActor`的`deliver`和`confirmDelivery`调用相对应的事件，以便在`PersistentActor`的恢复阶段通过调用相同的方法恢复状态。有时，这些事件可以从其他业务级事件派生，有时必须创建单独的事件。在恢复过程中，`deliver`调用不会发送消息，如果未执行匹配的`confirmDelivery`，则稍后将发送这些消息。
+### 使用 Props 创建 Actors
 
-对快照的支持由`getDeliverySnapshot`和`setDeliverySnapshot`提供。`AtLeastOnceDeliverySnapshot`包含完整的传递状态，也包括未确认的消息。如你需要 Actor 状态的其他部分的自定义快照，则还必须包括`AtLeastOnceDeliverySnapshot`。它使用`protobuf`和普通的 Akka 序列化机制进行序列化。最简单的方法是将`AtLeastOnceDeliverySnapshot`的字节作为`blob`包含在自定义快照中。
-
-重新传递尝试之间的间隔由`redeliverInterval`方法定义。可以使用`akka.persistence.at-least-once-delivery.redeliver-interval`配置键配置默认值。方法可以被实现类重写以返回非默认值。
-
-在每次重新传递突发时将发送的最大消息数由`redeliveryBurstLimit`方法定义（突发频率是重新传递间隔的一半）。如果有很多未确认的消息（例如，如果目标 Actor 长时间不可用），这有助于防止同时发送大量的消息。默认值可以使用`akka.persistence.at-least-once-delivery.redelivery-burst-limit`配置键进行配置。方法可以被实现类重写以返回非默认值。
-
-在多次尝试传递之后，至少会向`self`发送一条`AtLeastOnceDelivery.UnconfirmedWarning`消息。重新发送仍将继续，但你可以选择调用`confirmDelivery`以取消重新发送。发出警告前的传送尝试次数由`warnAfterNumberOfUnconfirmedAttempts`方法定义。可以使用`akka.persistence.at-least-once-delivery.warn-after-number-of-unconfirmed-attempts`配置键配置默认值。方法可以被实现类重写以返回非默认值。
-
-`AbstractPersistentActorWithAtLeastOnceDelivery`类将消息保存在内存中，直到确认它们的成功传递为止。允许 Actor 在内存中保留的未确认消息的最大数目由`maxUnconfirmedMessages`方法定义。如果超过此限制，则传递方法将不接受更多的消息，并将引发`AtLeastOnceDelivery.MaxUnconfirmedMessagesExceededException`。可以使用`akka.persistence.at-least-once-delivery.max-unconfirmed-messages`配置键配置默认值。方法可以被实现类重写以返回非默认值。
-
-## 事件适配器
-在使用事件源（`event sourcing`）的长时间运行的项目中，有时需要将数据模型与域模型完全分离。
-
-事件适配器（`Event Adapters`）在以下情况中提供帮助：
-
-- **版本迁移**（`Version Migrations`），存储在版本 1 中的现有事件应“向上转换”为新的版本 2 表示，这样做的过程涉及实际代码，而不仅仅是序列化层的更改。对于这些场景，`toJournal`函数通常是一个标识函数，但是`fromJournal`实现为`v1.Event=>v2.Event`，在`fromJournal`方法中执行必要的映射。这种技术有时在其他 CQRS 库中被称为`upcasting`。
-- **分离域和数据模型**（`Separating Domain and Data models`），由于`EventAdapters`，可以完全分离域模型和用于在日志中持久化数据的模型。例如，你可能希望在域模型中使用`case`类，但是将它们的协议缓冲区（或任何其他二进制序列化格式）计数器部分保留到日志中。可以使用简单的`toJournal:MyModel=>MyDataModel`和`fromJournal:MyDataModel=>MyModel`适配器来实现此功能。
-- **日志专用数据类型**（`Journal Specialized Data Types`），暴露基础日志所理解的数据类型，例如，对于理解 JSON 的数据存储，可以写一个`EventAdapter `的`toJournal:Any=>JSON`，这样日志就可以直接存储 JSON，而不是将对象序列化为其二进制表示。
-
-实现一个`EventAdapter`非常重要：
+Actors 是通过将`Props`实例传递到`actorOf`工厂方法来创建的，该方法在`ActorSystem`和`ActorContext`上可用。
 
 ```java
-class MyEventAdapter implements EventAdapter {
-  @Override
-  public String manifest(Object event) {
-    return ""; // if no manifest needed, return ""
-  }
-
-  @Override
-  public Object toJournal(Object event) {
-    return event; // identity
-  }
-
-  @Override
-  public EventSeq fromJournal(Object event, String manifest) {
-    return EventSeq.single(event); // identity
-  }
-}
+import akka.actor.ActorRef;
+import akka.actor.ActorSystem;
 ```
-然后，为了在日志中的事件上使用它，必须使用以下配置语法绑定它：
 
-```
-akka.persistence.journal {
-  inmem {
-    event-adapters {
-      tagging        = "docs.persistence.MyTaggingEventAdapter"
-      user-upcasting = "docs.persistence.UserUpcastingEventAdapter"
-      item-upcasting = "docs.persistence.ItemUpcastingEventAdapter"
-    }
-
-    event-adapter-bindings {
-      "docs.persistence.Item"        = tagging
-      "docs.persistence.TaggedEvent" = tagging
-      "docs.persistence.v1.Event"    = [user-upcasting, item-upcasting]
-    }
-  }
-}
-```
-可以将多个适配器（`adapter`）绑定到一个类以进行恢复，在这种情况下，所有绑定适配器的`fromJournal`方法将应用于给定的匹配事件（按照配置中的定义顺序）。由于每个适配器可以返回从`0`到`n`个适配事件（称为`EventSeq`），因此每个适配器都可以调查事件，如果确实需要对其进行适配，则返回相应的事件。在这个过程中没有任何贡献的其他适配器只返回`EventSeq.empty`。然后，在重放过程中，将调整后的事件传递给`PersistentActor`。
-
-- **注释**：有关更高级的模式演化技术，请参阅「[Persistence - Schema Evolution](https://doc.akka.io/docs/akka/current/persistence-schema-evolution.html)」文档。
-
-## 存储插件
-日志和快照存储的存储后端可以插入到 Akka 持久性扩展中。
-
-Akka 社区项目页面提供了持久性日志和快照存储插件的目录，请参阅「[社区插件](https://akka.io/community/)」。
-
-插件可以通过“默认”为所有持久性 Actor 的选择，也可以在持久性 Actor 定义自己的插件集时“单独”选择。
-
-当持久性 Actor 不重写`journalPluginId`和`snapshotPluginId`方法时，持久性扩展将使用`reference.conf`中配置的“默认”日志和快照存储插件：
-
-```
-akka.persistence.journal.plugin = ""
-akka.persistence.snapshot-store.plugin = ""
-```
-但是，这些条目作为空的`""`提供，需要通过在用户的`application.conf`中的覆盖进行显式的用户配置。有关将消息写入 LevelDB 的日志插件的示例，请参阅「[Local LevelDB](https://doc.akka.io/docs/akka/current/persistence.html#local-leveldb-journal)」。有关将快照作为单个文件写入本地文件系统的快照存储插件的示例，请参阅「[Local snapshot](https://doc.akka.io/docs/akka/current/persistence.html#local-snapshot-store)」。
-
-应用程序可以通过实现插件 API 并通过配置激活插件来提供自己的插件。插件开发需要以下导入：
+使用`ActorSystem`将创建顶级 Actor，由`ActorSystem`提供的守护者 Actor 进行监督，而使用`ActorContext`将创建子 Actor。
 
 ```java
-import akka.dispatch.Futures;
-import akka.persistence.*;
-import akka.persistence.journal.japi.*;
-import akka.persistence.snapshot.japi.*;
-```
-### 持久性插件的预先初始化
-默认情况下，持久性插件在使用时按需启动。然而，在某些情况下，预先启动某个插件可能会很有好处。为了做到这一点，你应该首先在`akka.extensions`键下添加`akka.persistence.Persistence`。然后，在`akka.persistence.journal.auto-start-journals`和`akka.persistence.snapshot-store.auto-start-snapshot-stores`下指定希望自动启动的插件的`ID`。
+static class FirstActor extends AbstractActor {
+  final ActorRef child = getContext().actorOf(Props.create(MyActor.class), "myChild");
 
-例如，如果你希望对 LevelDB 日志插件和本地快照存储插件进行预先初始化，那么你的配置应该如下所示：
-
-```
-akka {
-
-  extensions = [akka.persistence.Persistence]
-
-  persistence {
-
-    journal {
-      plugin = "akka.persistence.journal.leveldb"
-      auto-start-journals = ["akka.persistence.journal.leveldb"]
-    }
-
-    snapshot-store {
-      plugin = "akka.persistence.snapshot-store.local"
-      auto-start-snapshot-stores = ["akka.persistence.snapshot-store.local"]
-    }
+  @Override
+  public Receive createReceive() {
+    return receiveBuilder().matchAny(x -> getSender().tell(x, getSelf())).build();
   }
 }
 ```
-## 预打包插件
-### 本地 LevelDB 日志
-LevelDB 日志插件配置条目是`akka.persistence.journal.leveldb`。它将消息写入本地 LevelDB 实例。通过定义配置属性启用此插件：
 
-```
-# Path to the journal plugin to be used
-akka.persistence.journal.plugin = "akka.persistence.journal.leveldb"
-```
-基于 LevelDB 的插件还需要以下附加依赖声明：
+建议创建一个子级、孙子（`grand-children`）级这样的层次结构，以便它适合应用程序的逻辑故障处理结构，详见「[Actor Systems](https://doc.akka.io/docs/akka/current/general/actor-systems.html)」。
 
-```xml
-<!-- Maven -->
-<dependency>
-  <groupId>org.fusesource.leveldbjni</groupId>
-  <artifactId>leveldbjni-all</artifactId>
-  <version>1.8</version>
-</dependency>
+对`actorOf`的调用返回`ActorRef`的实例。这是 Actor 实例的句柄，也是与之交互的唯一方法。`ActorRef`是不可变的，并且与它所表示的 Actor 有一对一的关系。`ActorRef`也是可序列化的，并且具有网络意识（`network-aware`）。这意味着你可以序列化它，通过网络发送它，并在远程主机上使用它，并且它仍然在网络上表示原始节点上的同一个 Actor。
 
-<!-- Gradle -->
-dependencies {
-  compile group: 'org.fusesource.leveldbjni', name: 'leveldbjni-all', version: '1.8'
-}
+`name`参数是可选的，但你最好为 Actor 命名，因为它用于日志消息和标识 Actor。名称不能为空或以`$`开头，但可以包含 URL 编码字符（例如，空格为`%20`）。如果给定的名称已被同一父级的另一个子级使用，则会引发`InvalidActorNameException`。
 
-<!-- sbt -->
-libraryDependencies += "org.fusesource.leveldbjni" % "leveldbjni-all" % "1.8"
-```
-LevelDB 文件的默认位置是当前工作目录中名为`journal`的目录。可以通过配置更改此位置，其中指定的路径可以是相对路径或绝对路径：
+Actor 在创建时自动异步启动。
 
-```
-akka.persistence.journal.leveldb.dir = "target/journal"
-```
-使用这个插件，每个 Actor 系统运行自己的私有 LevelDB 实例。
+### 依赖注入
 
-LevelDB 的一个特点是，删除操作不会从日志中删除消息，而是为每个已删除的消息添加一个“逻辑删除”。在大量使用日志的情况下，尤其是包括频繁删除的情况下，这可能是一个问题，因为用户可能会发现自己正在处理不断增加的日志大小。为此，LevelDB 提供了一个特殊的功能，通过以下配置开启：
-
-```
-# Number of deleted messages per persistence id that will trigger journal compaction
-akka.persistence.journal.leveldb.compaction-intervals {
-  persistence-id-1 = 100
-  persistence-id-2 = 200
-  # ...
-  persistence-id-N = 1000
-  # use wildcards to match unspecified persistence ids, if any
-  "*" = 250
-}
-```
-### 共享 LevelDB 日记
-一个 LevelDB 实例也可以由多个 Actor 系统（在同一个或不同的节点上）共享。例如，这允许持久性 Actor 故障转移到备份节点，并继续从备份节点使用共享日志实例。
-
-- **警告**：共享的 LevelDB 实例是一个单一的故障点，因此只能用于测试目的。
-- **注释**：此插件已被「[Persistence Plugin Proxy](https://doc.akka.io/docs/akka/current/persistence.html#persistence-plugin-proxy)」取代。
-
-通过实例化`SharedLeveldbStore` Actor 可以启动共享 LevelDB 实例。
+如果你的 Actor 有一个接受参数的构造函数，那么这些参数也需要成为`Props`的一部分，如上所述。但在某些情况下，必须使用工厂方法，例如，当依赖项注入（`dependency injection`）框架确定实际的构造函数参数时。
 
 ```java
-final ActorRef store = system.actorOf(Props.create(SharedLeveldbStore.class), "store");
-```
-默认情况下，共享实例将日志消息写入当前工作目录中名为`journal`的本地目录。存储位置可以通过配置进行更改：
+import akka.actor.Actor;
+import akka.actor.IndirectActorProducer;
+class DependencyInjector implements IndirectActorProducer {
+  final Object applicationContext;
+  final String beanName;
 
-```
-akka.persistence.journal.leveldb-shared.store.dir = "target/shared"
-```
-使用共享 LevelDB 存储的 Actor 系统必须激活`akka.persistence.journal.leveldb-shared`插件。
+  public DependencyInjector(Object applicationContext, String beanName) {
+    this.applicationContext = applicationContext;
+    this.beanName = beanName;
+  }
 
-```
-akka.persistence.journal.plugin = "akka.persistence.journal.leveldb-shared"
-```
-
-必须通过插入（远程）`SharedLeveldbStore` Actor 引用来初始化此插件。注入是通过使用 Actor 引用作为参数调用`SharedLeveldbJournal.setStore`方法完成的。
-
-```java
-class SharedStorageUsage extends AbstractActor {
   @Override
-  public void preStart() throws Exception {
-    String path = "akka.tcp://example@127.0.0.1:2552/user/store";
-    ActorSelection selection = getContext().actorSelection(path);
-    selection.tell(new Identify(1), getSelf());
+  public Class<? extends Actor> actorClass() {
+    return TheActor.class;
+  }
+
+  @Override
+  public TheActor produce() {
+    TheActor result;
+    result = new TheActor((String) applicationContext);
+    return result;
+  }
+}
+
+  final ActorRef myActor =
+      getContext()
+          .actorOf(
+              Props.create(DependencyInjector.class, applicationContext, "TheActor"), "TheActor");
+```
+
+- **警告**：有时，你可能会试图提供始终返回同一实例的`IndirectActorProducer`，例如使用静态字段。这是不支持的，因为它违背了 Actor 重新启动的含义，这里描述了：「[重新启动意味着什么](https://doc.akka.io/docs/akka/current/general/supervision.html#supervision-restart)」。
+
+当使用依赖注入框架时，Actor `bean`不能有`singleton`作用域。
+
+在「[Using Akka with Dependency Injection](http://letitcrash.com/post/55958814293/akka-dependency-injection)」指南和「[Akka Java Spring](https://github.com/typesafehub/activator-akka-java-spring)」教程中，有关于依赖注入的更深层次的描述。
+
+### 收件箱
+
+当在与 Actor 通信的 Actor 外部编写代码时，`ask`模式可以是一个解决方案（见下文），但它不能做两件事：接收多个回复（例如，通过向通知服务订阅`ActorRef`）和观察其他 Actor 的生命周期。出于这些目的，有一个`Inbox`类：
+
+```java
+final Inbox inbox = Inbox.create(system);
+inbox.send(target, "hello");
+try {
+  assert inbox.receive(Duration.ofSeconds(1)).equals("world");
+} catch (java.util.concurrent.TimeoutException e) {
+  // timeout
+}
+```
+
+`send`方法包装了一个普通的`tell`，并将内部 Actor 的引用作为发送者提供。这允许在最后一行接收回复。监视（`Watching`）Actor 也很简单：
+
+```java
+final Inbox inbox = Inbox.create(system);
+inbox.watch(target);
+target.tell(PoisonPill.getInstance(), ActorRef.noSender());
+try {
+  assert inbox.receive(Duration.ofSeconds(1)) instanceof Terminated;
+} catch (java.util.concurrent.TimeoutException e) {
+  // timeout
+}
+```
+
+## Actor API
+
+`AbstractActor`类定义了一个名为`createReceive`的方法，该方法用于设置 Actor 的“初始行为”。
+
+如果当前的 Actor 行为与接收到的消息不匹配，则调用`unhandled`，默认情况下，它在Actor 系统的事件流上发布`akka.actor.UnhandledMessage(message, sender, recipient)`（将配置项`akka.actor.debug.unhandled`设置为`on`，以便将其转换为实际的`Debug`消息）。
+
+此外，它还提供：
+
+- `getSelf()`，对 Actor 的`ActorRef`的引用
+- `getSender()`，前一次接收到的消息的发送方 Actor 的引用
+- `supervisorStrategy()`，用户可重写定义用于监视子 Actor 的策略
+
+该策略通常在 Actor 内部声明，以便访问决策函数中 Actor 的内部状态：由于故障作为消息发送给其监督者并像其他消息一样进行处理（尽管不属于正常行为），因此 Actor 内的所有值和变量都可用，就像`sender`引用一样（报告失败的是直接子级；如果原始失败发生在一个遥远的后代中，则每次仍向上一级报告）。
+
+- `getContext()`公开 Actor 和当前消息的上下文信息，例如：
+  - 创建子 Actor 的工厂方法（`actorOf`）
+  - Actor 所属的系统
+  - 父级监督者
+  - 受监督的子级
+  - 生命周期监控
+  - 如`Become/Unbecome`中所述的热交换行为栈（`hotswap behavior stack`）
+  - 
+其余可见的方法是用户可重写的生命周期钩子方法，如下所述：
+
+```java
+public void preStart() {}
+
+public void preRestart(Throwable reason, Optional<Object> message) {
+  for (ActorRef each : getContext().getChildren()) {
+    getContext().unwatch(each);
+    getContext().stop(each);
+  }
+  postStop();
+}
+
+public void postRestart(Throwable reason) {
+  preStart();
+}
+
+public void postStop() {}
+```
+
+上面显示的实现是`AbstractActor`类提供的默认值。
+
+### Actor 生命周期
+
+![actor-path](https://github.com/guobinhit/akka-guide/blob/master/images/actors/actors/actor-path.png)
+
+Actor 系统中的一条路径表示一个“地方”，可能被一个活着的 Actor 占据。最初（除了系统初始化的 Actor 之外）路径是空的，当调用`actorOf()`时，它将通过传递的`Props`描述的 Actor 的化身（`incarnation`）分配给给定的路径，Actor 的化身由路径（`path`）和`UID`标识。
+
+值得注意的是：
+
+- `restart`
+- `stop`，然后重新创建 Actor
+
+如下所述。
+
+重新启动（`restart`）只交换由`Props`定义的`Actor`实例，因此`UID`保持不变。只要化身是相同的，你可以继续使用相同的`ActorRef`。重启是通过 Actor 的父 Actor 的「[Supervision Strategy](https://doc.akka.io/docs/akka/current/fault-tolerance.html#creating-a-supervisor-strategy)」来处理的，关于重启的含义还有「[更多的讨论](https://doc.akka.io/docs/akka/current/general/supervision.html#supervision-restart)」。
+
+当 Actor 停止时，化身的生命周期就结束了。此时将调用适当的生命周期事件，并将终止通知观察 Actor。当化身停止后，可以通过使用`actorOf()`创建 Actor 来再次使用路径。在这种情况下，新化身的名称将与前一个相同，但`UID`将不同。Actor 可以由 Actor 本身、另一个 Actor 或 Actor 系统停止，详见「[停止 Actor](https://doc.akka.io/docs/akka/current/actors.html#stopping-actors)」。
+
+- **注释**：重要的是要注意，Actor 不再被引用时不会自动停止，创建的每个 Actor 也必须显式销毁。唯一的简化是，停止父 Actor 也将递归地停止此父 Actor 创建的所有子 Actor。
+
+`ActorRef`总是代表一个化身（路径和`UID`），而不仅仅是一个给定的路径。因此，如果一个 Actor 被停止，一个同名的新 Actor 被创造出来，旧化身的 Actor 引用就不会指向新的 Actor。
+
+另一方面，`ActorSelection`指向路径（或者如果使用通配符，则指向多个路径），并且完全忽略了具体化当前正在占用的路径。由于这个原因，`ActorSelection`不能被观看。可以通过向`ActorSelection`发送`Identify`消息来获取（`resolve`）当前化身的`ActorRef`，该消息将以包含正确引用的`ActorIdentity`回复，详见[ActorSelection](https://doc.akka.io/docs/akka/current/actors.html#actorselection)」。这也可以通过`ActorSelection`的`resolveOne`方法来实现，该方法返回匹配`ActorRef`的`Future`。
+
+### 生命周期监控，或称为 DeathWatch
+
+为了在另一个 Actor 终止时得到通知（即永久停止，而不是临时失败和重新启动），Actor 可以注册（`register`）自己，以便在终止时接收另一个 Actor 发送的`Terminated`消息，详见「[停止 Actor](https://doc.akka.io/docs/akka/current/actors.html#stopping-actors)」。此服务由 Actor 系统的`DeathWatch`组件提供。
+
+注册监视器（`monitor`）很容易：
+
+```java
+import akka.actor.Terminated;
+static class WatchActor extends AbstractActor {
+  private final ActorRef child = getContext().actorOf(Props.empty(), "target");
+  private ActorRef lastSender = system.deadLetters();
+
+  public WatchActor() {
+    getContext().watch(child); // <-- this is the only call needed for registration
+  }
+
+  @Override
+  public Receive createReceive() {
+    return receiveBuilder()
+        .matchEquals(
+            "kill",
+            s -> {
+              getContext().stop(child);
+              lastSender = getSender();
+            })
+        .match(
+            Terminated.class,
+            t -> t.actor().equals(child),
+            t -> {
+              lastSender.tell("finished", getSelf());
+            })
+        .build();
+  }
+}
+```
+
+在这里，有一点需要我们注意：`Terminated`消息的生成与注册和终止发生的顺序无关。特别是，即使被监视的 Actor 在注册时已经被终止，监视的 Actor 也将收到一条`Terminated`消息。
+
+多次注册并不一定会导致生成多条消息，但不能保证只接收到一条这样的消息：如果被监视的 Actor 的终止消息已经生成并将消息排队，并且在处理此消息之前完成了另一个注册，则第二条消息也将进入消息队列。因为注册监视已经终止的 Actor 会导致立即生成`Terminated`消息。
+
+也可以通过`context.unwatch(target)`取消监视另一个 Actor 的存活情况。即使`Terminated`消息已经在邮箱中排队，也可以这样做；在调用`unwatch`之后，将不再处理该 Actor 的`Terminated`消息。
+
+### Start 钩子
+
+启动 Actor 之后，立即调用其`preStart`方法。
+
+```java
+@Override
+public void preStart() {
+  target = getContext().actorOf(Props.create(MyActor.class, "target"));
+}
+```
+
+首次创建 Actor 时调用此方法。在重新启动期间，它由`postRestart`的默认实现调用，这意味着通过重写该方法，你可以选择是否只为此 Actor 或每次重新启动时调用一次此方法中的初始化代码。当创建 Actor 类的实例时，总是会调用作为 Actor 构造函数一部分的初始化代码，该实例在每次重新启动时都会发生。
+
+### Restart 钩子
+
+所有 Actor 都受到监督，即通过故障处理策略链接到另一个 Actor。如果在处理消息时引发异常，则可以重新启动 Actor（详见「[supervision](https://doc.akka.io/docs/akka/current/general/supervision.html)」）。重新启动涉及上述挂钩：
+
+1. 通过调用导致`preRestart`的异常和触发该异常的消息来通知旧 Actor ；如果重新启动不是由处理消息引起的，则后者可能为`None`，例如，当监督者不捕获异常并由其监督者依次重新启动时，或者某个 Actor 由于其同级 Actor 的失败而导致重新启动时。如果消息可用，那么该消息的发送者也可以通过常规方式访问，即调用`sender`。此方法是清理、准备移交给新的 Actor 实例等的最佳位置。默认情况下，它会停止所有子级并调用`postStop`。
+2. 来自`actorOf`调用的初始工厂用于生成新实例。
+3. 调用新 Actor 的`postRestart`方法时出现导致重新启动的异常。默认情况下，会调用`preStart `，就像在正常启动情况下一样。
+
+Actor 重新启动仅替换实际的 Actor 对象；邮箱的内容不受重新启动的影响，因此在`postRestart`钩子返回后，将继续处理消息，而且将不再接收触发异常的消息。重新启动时发送给 Actor 的任何消息都将像往常一样排队进入其邮箱。
+
+- **警告**：请注意，与用户消息相关的失败通知的顺序是不确定的。特别是，父级可以在处理子级在失败之前发送的最后一条消息之前重新启动其子级。有关详细信息，请参阅「[讨论：消息排序](https://doc.akka.io/docs/akka/current/general/message-delivery-reliability.html#message-ordering)」。
+
+### Stop 钩子
+
+停止某个 Actor 后，将调用其`postStop`钩子，该钩子可用于将该 Actor 从其他服务中注销。此钩子保证在禁用此 Actor 的消息队列后运行，即发送到已停止 Actor 的消息将被重定向到`ActorSystem`的`deadLetters`。
+
+## 通过 Actor Selection 识别 Actor
+
+如「[Actor References, Paths and Addresses](https://doc.akka.io/docs/akka/current/general/addressing.html)」中所述，每个 Actor 都有唯一的逻辑路径，该路径通过从子级到父级的 Actor 链获得，直到到达 Actor 系统的根，并且它有一个物理路径，如果监督链（`supervision chain`）包含任何远程监管者，则该路径可能有所不同。系统使用这些路径来查找 Actor，例如，当接收到远程消息并搜索收件人时，它们很有用：Actor 可以通过指定逻辑或物理的绝对或相对路径来查找其他 Actor，并接收带有结果的`ActorSelection`：
+
+```java
+// will look up this absolute path
+getContext().actorSelection("/user/serviceA/actor");
+// will look up sibling beneath same supervisor
+getContext().actorSelection("../joe");
+```
+
+- **注释**：与其他 Actor 交流时，最好使用他们的`ActorRef`，而不是依靠`ActorSelection`。但也有例外，如
+  - 使用「[至少一次传递](https://doc.akka.io/docs/akka/current/persistence.html#at-least-once-delivery)」能力发送消息
+  - 启动与远程系统的第一次连接
+
+在所有其他情况下，可以在 Actor 创建或初始化期间提供`ActorRef`，将其从父级传递到子级，或者通过将其`ActorRef`发送到其他 Actor 来引出 Actor。
+
+提供的路径被解析为` java.net.URI`，这意味着它在路径元素上被`/`拆分。如果路径以`/`开头，则为绝对路径，查找从根守护者（它是`/user`的父级）开始；否则，查找从当前 Actor 开始。如果路径元素等于`..`，则查找将向当前遍历的 Actor 的监督者“向上”一步，否则将向命名的子级“向下”一步。应该注意的是`..`在 Actor 路径中，总是指逻辑结构，即监督者。
+
+Actor 选择（`selection`）的路径元素可以包含允许向该部分广播（`broadcasting`）消息的通配符模式：
+
+```java
+// will look all children to serviceB with names starting with worker
+getContext().actorSelection("/user/serviceB/worker*");
+// will look up all siblings beneath same supervisor
+getContext().actorSelection("../*");
+```
+
+消息可以通过`ActorSelection`发送，并且在传递每个消息时查找`ActorSelection`的路径。如果选择（`selection`）与任何 Actor 都不匹配，则消息将被删除。
+
+要获取`ActorRef`以进行`ActorSelection`，你需要向选择发送消息，并使用来自 Actor 的答复的`getSender()`引用。有一个内置的`Identify`消息，所有 Actor 都将理解该消息，并使用包含`ActorRef`的`ActorIdentity`消息自动回复。此消息由 Actor 专门处理，如果具体的名称查找失败（即非通配符路径元素与存活的 Actor 不对应），则会生成负（`negative`）结果。请注意，这并不意味着保证回复的传递（`delivery of that reply is guaranteed`），它仍然是正常的消息。
+
+```java
+import akka.actor.ActorIdentity;
+import akka.actor.ActorSelection;
+import akka.actor.Identify;
+static class Follower extends AbstractActor {
+  final Integer identifyId = 1;
+
+  public Follower() {
+    ActorSelection selection = getContext().actorSelection("/user/another");
+    selection.tell(new Identify(identifyId), getSelf());
   }
 
   @Override
@@ -1138,238 +456,897 @@ class SharedStorageUsage extends AbstractActor {
     return receiveBuilder()
         .match(
             ActorIdentity.class,
-            ai -> {
-              if (ai.correlationId().equals(1)) {
-                Optional<ActorRef> store = ai.getActorRef();
-                if (store.isPresent()) {
-                  SharedLeveldbJournal.setStore(store.get(), getContext().getSystem());
-                } else {
-                  throw new RuntimeException("Couldn't identify store");
-                }
-              }
+            id -> id.getActorRef().isPresent(),
+            id -> {
+              ActorRef ref = id.getActorRef().get();
+              getContext().watch(ref);
+              getContext().become(active(ref));
+            })
+        .match(
+            ActorIdentity.class,
+            id -> !id.getActorRef().isPresent(),
+            id -> {
+              getContext().stop(getSelf());
+            })
+        .build();
+  }
+
+  final AbstractActor.Receive active(final ActorRef another) {
+    return receiveBuilder()
+        .match(
+            Terminated.class, t -> t.actor().equals(another), t -> getContext().stop(getSelf()))
+        .build();
+  }
+}
+```
+
+你还可以使用`ActorSelection`的`resolveOne`方法获取`ActorRef`以进行actorselection。如果存在这样的 Actor，它将返回匹配的`ActorRef`的`Future`，可参阅「[ Java 8 Compatibility for Java compatibility](https://doc.akka.io/docs/akka/current/java8-compat.html)」。如果不存在这样的 Actor 或标识在提供的`timeout`内未完成，则完成此操作并抛出`akka.actor.ActorNotFound`异常。
+
+如果启用「[remoting](https://doc.akka.io/docs/akka/current/remoting.html)」，也可以查找远程 Actor 的地址：
+
+```java
+getContext().actorSelection("akka.tcp://app@otherhost:1234/user/serviceB");
+```
+
+「[Remoting Sample](https://doc.akka.io/docs/akka/current/remoting.html#remote-sample)」中给出了一个在启用远程处理（`remoting`）的情况下演示 Actor 查找的例子。
+
+## 信息和不变性
+
+- **重要的**：消息可以是任何类型的对象，但必须是不可变的。Akka 还不能强制执行不可变性，所以必须按惯例执行。
+
+以下是不可变消息的示例：
+
+```java
+public class ImmutableMessage {
+  private final int sequenceNumber;
+  private final List<String> values;
+
+  public ImmutableMessage(int sequenceNumber, List<String> values) {
+    this.sequenceNumber = sequenceNumber;
+    this.values = Collections.unmodifiableList(new ArrayList<String>(values));
+  }
+
+  public int getSequenceNumber() {
+    return sequenceNumber;
+  }
+
+  public List<String> getValues() {
+    return values;
+  }
+}
+```
+
+## 发送消息
+
+消息通过以下方法之一发送给 Actor。
+
+- `tell`的意思是“发送并忘记（`fire-and-forget`）”，例如异步发送消息并立即返回。
+- `ask`异步发送消息，并返回一个表示可能的答复。
+
+每一个发送者都有消息顺序的保证。
+
+- **注释**：使用`ask`会带来性能方面的影响，因为有些东西需要跟踪它何时超时，需要有一些东西将一个`Promise`连接到`ActorRef`中，并且还需要通过远程处理实现它。所以，我们更倾向于使用`tell`，只有当你有足够的理由时才应该使用`ask`。
+
+在所有这些方法中，你可以选择传递自己的`ActorRef`。将其作为一种实践，因为这样做将允许接收者 Actor 能够响应你的消息，因为发送者引用与消息一起发送。
+
+### Tell: Fire-forget
+
+这是发送消息的首选方式，它不用等待消息返回，因此不是阻塞的。这提供了最佳的并发性和可伸缩性的特性。
+
+```java
+// don’t forget to think about who is the sender (2nd argument)
+target.tell(message, getSelf());
+```
+
+发送方引用与消息一起传递，并在处理此消息时通过`getSender()`方法在接收 Actor 中使用。在一个 Actor 内部，通常是`getSelf()`作为发送者，但在某些情况下，回复（`replies`）应该路由到另一个 Actor，例如，父对象，其中`tell`的第二个参数将是另一个 Actor。在 Actor 外部，如果不需要回复，则第二个参数可以为`null`；如果在 Actor 外部需要回复，则可以使用下面描述的`ask`模式。
+
+### Ask: Send-And-Receive-Future
+
+`ask`模式涉及 Actor 和`Future`，因此它是作为一种使用模式而不是`ActorRef`上的一种方法提供的：
+
+```java
+import static akka.pattern.Patterns.ask;
+import static akka.pattern.Patterns.pipe;
+
+import java.util.concurrent.CompletableFuture;
+final Duration t = Duration.ofSeconds(5);
+
+// using 1000ms timeout
+CompletableFuture<Object> future1 =
+    ask(actorA, "request", Duration.ofMillis(1000)).toCompletableFuture();
+
+// using timeout from above
+CompletableFuture<Object> future2 = ask(actorB, "another request", t).toCompletableFuture();
+
+CompletableFuture<Result> transformed =
+    CompletableFuture.allOf(future1, future2)
+        .thenApply(
+            v -> {
+              String x = (String) future1.join();
+              String s = (String) future2.join();
+              return new Result(x, s);
+            });
+
+pipe(transformed, system.dispatcher()).to(actorC);
+```
+
+这个例子演示了`ask`和`pipeTo`模式在`Future`上的结合，因为这可能是一个常见的组合。请注意，以上所有内容都是完全非阻塞和异步的：`ask`生成一个，其中两个使用`CompletableFuture.allOf`和`thenApply`方法组合成新的`Future`，然后`pipe`在`CompletionStage`上安装一个处理程序，以将聚合`Result`提交给另一个 Actor。
+
+使用`ask`会像使用`tell`一样向接收 Actor 发送消息，并且接收 Actor 必须使用`getSender().tell(reply, getSelf())`才能完成返回的值。`ask`操作涉及创建一个用于处理此回复的内部 Actor，该 Actor 需要有一个超时，在该超时之后才能将其销毁，以便不泄漏资源；具体请参阅下面更多的内容。
+
+- **警告**：要完成带异常的，你需要向发件人发送`akka.actor.Status.Failure`消息。当 Actor 在处理消息时抛出异常，不会自动执行此操作。
+
+```java
+try {
+  String result = operation();
+  getSender().tell(result, getSelf());
+} catch (Exception e) {
+  getSender().tell(new akka.actor.Status.Failure(e), getSelf());
+  throw e;
+}
+```
+
+如果 Actor 未完成，则它将在超时期限（指定为`ask`方法的参数）之后过期；这将使用`AskTimeoutException`完成`CompletionStage`。
+
+这可以用于注册回调以便在完成时获取通知，从而提供避免阻塞的方法。
+
+- **警告**：当使用`Future`的回调时，内部 Actor 需要小心避免关闭包含 Actor 的引用，即不要从回调中调用方法或访问封闭 Actor 的可变状态。这将破坏 Actor 的封装，并可能引入同步错误和竞态条件，因为回调将被同时调度到封闭 Actor。不幸的是，目前还没有一种方法可以在编译时检测到这些非法访问。另见「[Actors 和共享可变状态](https://doc.akka.io/docs/akka/current/general/jmm.html#jmm-shared-state)」。
+
+### 转发消息
+
+你可以将消息从一个 Actor 转发到另一个 Actor。这意味着即使消息通过“中介器（`mediator`）”，原始发送方地址/引用也会得到维护。这在编写充当路由器（`routers`）、负载平衡器（`load-balancers`）、复制器（`replicators`）等的 Actor 时很有用。
+
+```java
+target.forward(result, getContext());
+```
+
+## 接收消息
+
+Actor 必须通过在`AbstractActor`中实现`createReceive`方法来定义其初始接收行为：
+
+```java
+@Override
+public Receive createReceive() {
+  return receiveBuilder().match(String.class, s -> System.out.println(s.toLowerCase())).build();
+}
+```
+
+返回类型是`AbstractActor.Receive`，它定义了 Actor 可以处理哪些消息，以及如何处理这些消息的实现。可以使用名为`ReceiveBuilder`的生成器来构建此类行为。下面是一个例子：
+
+```java
+import akka.actor.AbstractActor;
+import akka.event.Logging;
+import akka.event.LoggingAdapter;
+
+public class MyActor extends AbstractActor {
+  private final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
+
+  @Override
+  public Receive createReceive() {
+    return receiveBuilder()
+        .match(
+            String.class,
+            s -> {
+              log.info("Received String message: {}", s);
+            })
+        .matchAny(o -> log.info("received unknown message"))
+        .build();
+  }
+}
+```
+
+如果你希望提供许多`match`案例，但希望避免创建长调用跟踪（`a long call trail`），可以将生成器的创建拆分为多个语句，如示例中所示：
+
+```java
+import akka.actor.AbstractActor;
+import akka.event.Logging;
+import akka.event.LoggingAdapter;
+import akka.japi.pf.ReceiveBuilder;
+
+public class GraduallyBuiltActor extends AbstractActor {
+  private final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
+
+  @Override
+  public Receive createReceive() {
+    ReceiveBuilder builder = ReceiveBuilder.create();
+
+    builder.match(
+        String.class,
+        s -> {
+          log.info("Received String message: {}", s);
+        });
+
+    // do some other stuff in between
+
+    builder.matchAny(o -> log.info("received unknown message"));
+
+    return builder.build();
+  }
+}
+```
+
+在 Actor 中，使用小方法也是一种很好的做法。建议将消息处理的实际工作委托给方法，而不是在每个`lambda`中定义具有大量代码的大型`ReceiveBuilder`。一个结构良好的 Actor 可以是这样的：
+
+```java
+static class WellStructuredActor extends AbstractActor {
+
+  public static class Msg1 {}
+
+  public static class Msg2 {}
+
+  public static class Msg3 {}
+
+  @Override
+  public Receive createReceive() {
+    return receiveBuilder()
+        .match(Msg1.class, this::receiveMsg1)
+        .match(Msg2.class, this::receiveMsg2)
+        .match(Msg3.class, this::receiveMsg3)
+        .build();
+  }
+
+  private void receiveMsg1(Msg1 msg) {
+    // actual work
+  }
+
+  private void receiveMsg2(Msg2 msg) {
+    // actual work
+  }
+
+  private void receiveMsg3(Msg3 msg) {
+    // actual work
+  }
+}
+```
+
+这样做有以下好处：
+
+- 更容易看到 Actor 能处理什么样的信息
+- 异常情况下的可读堆栈跟踪
+- 更好地使用性能分析工具
+- Java HotSpot 有更好的机会进行优化
+
+`Receive`可以通过其他方式实现，而不是使用`ReceiveBuilder`，因为它最终只是一个 Scala `PartialFunction`的包装器。在 Java 中，可以通过扩展`AbstractPartialFunction`实现`PartialFunction`。例如，可以实现「[与 DSL 匹配的 Vavr 模式适配器](http://www.vavr.io/vavr-docs/#_pattern_matching)」，有关更多详细信息，请参阅「[Akka Vavr 示例项目](https://developer.lightbend.com/start/?group=akka&project=akka-sample-vavr)」。
+
+如果对某些 Actor 来说，验证`ReceiveBuilder`匹配逻辑是一个瓶颈，那么你可以考虑通过扩展`UntypedAbstractActor`而不是`AbstractActor`来在较低的级别实现它。`ReceiveBuilder`创建的分部函数由每个`match`语句的多个`lambda`表达式组成，其中每个`lambda`都引用要运行的代码。这是 JVM 在优化时可能会遇到的问题，并且产生的代码的性能可能不如非类型化版本。当扩展`UntypedAbstractActor`时，每个消息都作为非类型化`Object`接收，你必须以其他方式检查并转换为实际的消息类型，如下所示：
+
+```java
+static class OptimizedActor extends UntypedAbstractActor {
+
+  public static class Msg1 {}
+
+  public static class Msg2 {}
+
+  public static class Msg3 {}
+
+  @Override
+  public void onReceive(Object msg) throws Exception {
+    if (msg instanceof Msg1) receiveMsg1((Msg1) msg);
+    else if (msg instanceof Msg2) receiveMsg2((Msg2) msg);
+    else if (msg instanceof Msg3) receiveMsg3((Msg3) msg);
+    else unhandled(msg);
+  }
+
+  private void receiveMsg1(Msg1 msg) {
+    // actual work
+  }
+
+  private void receiveMsg2(Msg2 msg) {
+    // actual work
+  }
+
+  private void receiveMsg3(Msg3 msg) {
+    // actual work
+  }
+}
+```
+
+## 回复消息
+
+如果你想有一个回复消息的句柄，可以使用`getSender()`，它会给你一个`ActorRef`。你可以通过使用`getSender().tell(replyMsg, getSelf())`发送`ActorRef`来进行回复。你还可以存储`ActorRef`以供稍后回复或传递给其他 Actor。如果没有发送者（发送的消息没有 Actor 或`Future`上下文），那么发送者默认为死信（`dead-letter`）Actor 引用。
+
+```java
+getSender().tell(s, getSelf());
+```
+
+## 接收超时
+
+`ActorContext setReceiveTimeout`定义了非活动超时，在该超时之后，将触发发送`ReceiveTimeout`消息。指定超时时间后，接收函数应该能够处理`akka.actor.ReceiveTimeout`消息。`1`毫秒是支持的最小超时时间。
+
+请注意，接收超时（`receive timeout`）可能会在另一条消息排队后立即触发并排队`ReceiveTimeout`消息；因此，不保证在接收超时，如通过此方法配置的那样，事先必须有空闲时间。
+
+设置后，接收超时将保持有效（即在非活动期后继续重复触发），可以通过传入`Duration.Undefined`消息来关闭此功能。
+
+```java
+static class ReceiveTimeoutActor extends AbstractActor {
+  public ReceiveTimeoutActor() {
+    // To set an initial delay
+    getContext().setReceiveTimeout(Duration.ofSeconds(10));
+  }
+
+  @Override
+  public Receive createReceive() {
+    return receiveBuilder()
+        .matchEquals(
+            "Hello",
+            s -> {
+              // To set in a response to a message
+              getContext().setReceiveTimeout(Duration.ofSeconds(1));
+            })
+        .match(
+            ReceiveTimeout.class,
+            r -> {
+              // To turn it off
+              getContext().cancelReceiveTimeout();
             })
         .build();
   }
 }
 ```
-内部日志命令（由持久性 Actor 发送）被缓冲，直到注入完成。注入是幂等的，即只使用第一次注入。
 
-### 本地快照存储
-本地快照存储（`local snapshot store`）插件配置条目为`akka.persistence.snapshot-store.local`。它将快照文件写入本地文件系统。通过定义配置属性启用此插件：
+标记为`NotInfluenceReceiveTimeout`的消息将不会重置计时器。当`ReceiveTimeout`受外部不活动而不受内部活动（如定时勾选消息）影响时，这可能会很有用（`This can be useful when ReceiveTimeout should be fired by external inactivity but not influenced by internal activity, e.g. scheduled tick messages.
+`）。
 
-```
-# Path to the snapshot store plugin to be used
-akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.local"
-```
-默认存储位置是当前工作目录中名为`snapshots`的目录。这可以通过配置进行更改，其中指定的路径可以是相对路径或绝对路径：
+## 定时器和调度消息
+通过直接使用「[Scheduler](https://doc.akka.io/docs/akka/current/scheduler.html)」，可以将消息安排在以后的时间点发送，但是在将 Actor 中的定期或单个消息安排到自身时，使用对命名定时器（`named timers`）的支持更为方便和安全。当 Actor 重新启动并由定时器处理时，调度（`scheduled`）消息的生命周期可能难以管理。
 
-```
-akka.persistence.snapshot-store.local.dir = "target/snapshots"
-```
-请注意，不必指定快照存储插件。如果不使用快照，则无需对其进行配置。
+```java
+import java.time.Duration;
+import akka.actor.AbstractActorWithTimers;
 
-### 持久化插件代理
-持久化插件代理（`persistence plugin proxy`）允许跨多个 Actor 系统（在相同或不同节点上）共享日志和快照存储。例如，这允许持久性 Actor 故障转移到备份节点，并继续从备份节点使用共享日志实例。代理的工作方式是将所有日志/快照存储消息转发到一个共享的持久性插件实例，因此支持代理插件支持的任何用例。
+static class MyActor extends AbstractActorWithTimers {
 
-- **警告**：共享日志/快照存储是单一故障点，因此应仅用于测试目的。
+  private static Object TICK_KEY = "TickKey";
 
-日志和快照存储代理分别通过`akka.persistence.journal.proxy`和`akka.persistence.snapshot-store.proxy`配置条目进行控制。将`target-journal-plugin`或`target-snapshot-store-plugin`键设置为要使用的基础插件（例如：`akka.persistence.journal.leveldb`）。在一个 Actor 系统中，`start-target-journal`和`start-target-snapshot-store`键应设置为`on`，这是将实例化共享持久性插件的系统。接下来，需要告诉代理如何找到共享插件。这可以通过设置`target-journal-address`和`target-snapshot-store-address`配置键来实现，也可以通过编程方式调用`PersistencePluginProxy.setTargetLocation`方法来实现。
+  private static final class FirstTick {}
 
-- **注释**：当需要扩展时，Akka 会延迟地启动扩展，这包括代理。这意味着为了让代理正常工作，必须实例化目标节点上的持久性插件。这可以通过实例化`PersistencePluginProxyExtension`扩展或调用`PersistencePluginProxy.start`方法来完成。此外，代理持久性插件可以（也应该）使用其原始配置键进行配置。
+  private static final class Tick {}
 
-## 自定义序列化
-快照的序列化和`Persistent`消息的有效负载可以通过 Akka 的序列化基础设施进行配置。例如，如果应用程序想要序列化
-
-- payloads of type MyPayload with a custom MyPayloadSerializer and
-- snapshots of type MySnapshot with a custom MySnapshotSerializer
-
-它必须增加：
-
-```
-akka.actor {
-  serializers {
-    my-payload = "docs.persistence.MyPayloadSerializer"
-    my-snapshot = "docs.persistence.MySnapshotSerializer"
+  public MyActor() {
+    getTimers().startSingleTimer(TICK_KEY, new FirstTick(), Duration.ofMillis(500));
   }
-  serialization-bindings {
-    "docs.persistence.MyPayload" = my-payload
-    "docs.persistence.MySnapshot" = my-snapshot
+
+  @Override
+  public Receive createReceive() {
+    return receiveBuilder()
+        .match(
+            FirstTick.class,
+            message -> {
+              // do something useful here
+              getTimers().startPeriodicTimer(TICK_KEY, new Tick(), Duration.ofSeconds(1));
+            })
+        .match(
+            Tick.class,
+            message -> {
+              // do something useful here
+            })
+        .build();
   }
 }
 ```
-到应用程序配置。如果未指定，则使用默认序列化程序。
 
-有关更高级的模式演化技术，请参阅「[Persistence - Schema Evolution](https://doc.akka.io/docs/akka/current/persistence-schema-evolution.html)」文档。
+每个定时器都有一个键，可以更换或取消。它保证不会收到来自具有相同密钥的定时器的前一个实例的消息，即使当它被取消或新定时器启动时，它可能已经在邮箱中排队。
 
-## 测试
+定时器绑定到拥有它的 Actor 的生命周期，因此当它重新启动或停止时自动取消。请注意，`TimerScheduler`不是线程安全的，即它只能在拥有它的 Actor 中使用。
 
-在 sbt 中使用 LevelDB 默认设置运行测试时，请确保在 sbt 项目中设置`fork := true`。否则，你将看到一个`UnsatisfiedLinkError`。或者，你可以通过设置切换到 LevelDB Java 端口。
+## 停止 Actor
 
+通过调用`ActorRefFactory`的`stop`方法（即`ActorContext`或`ActorSystem`）来停止 Actor。通常，上下文用于停止 Actor 本身或子 Actor，以及停止顶级 Actor 的系统。Actor 的实际终止是异步执行的，也就是说，`stop`可能会在 Actor 停止之前返回。
+
+```java
+import akka.actor.ActorRef;
+import akka.actor.AbstractActor;
+
+public class MyStoppingActor extends AbstractActor {
+
+  ActorRef child = null;
+
+  // ... creation of child ...
+
+  @Override
+  public Receive createReceive() {
+    return receiveBuilder()
+        .matchEquals("interrupt-child", m -> getContext().stop(child))
+        .matchEquals("done", m -> getContext().stop(getSelf()))
+        .build();
+  }
+}
 ```
-akka.persistence.journal.leveldb.native = off
+
+当前邮件（如果有）的处理将在 Actor 停止之前继续，但不会处理邮箱中的其他邮件。默认情况下，这些消息将发送到`ActorSystem`的`deadLetters`，但这取决于邮箱的实现。
+
+一个 Actor 的终止分两步进行：首先，Actor 暂停其邮箱处理并向其所有子级发送停止命令，然后继续处理其子级的内部终止通知，直到最后一个终止，最后终止其自身（调用`postStop`、转储邮箱、在`DeathWatch`上发布`Terminated`、通知其监督者）。此过程确保 Actor 系统子树以有序的方式终止，将`stop`命令传播到叶，并将其确认信息收集回已停止的监督者。如果其中一个 Actor 没有响应（即长时间处理消息，因此不接收`stop`命令），那么整个过程将被阻塞。
+
+在`ActorSystem.terminate()`之后，系统守护者 Actor 将被停止，上述过程将确保整个系统的正确终止。
+
+`postStop()`钩子在 Actor 完全停止后调用。这样可以清理资源：
+
+```java
+@Override
+public void postStop() {
+  final String message = "stopped";
+  // don’t forget to think about who is the sender (2nd argument)
+  target.tell(message, getSelf());
+  final Object result = "";
+  target.forward(result, getContext());
+  target = null;
+}
 ```
 
-或
+- **注释**：由于停止 Actor 是异步的，因此不能立即重用刚刚停止的子级的名称；这将导致`InvalidActorNameException`。相反，`watch()`终止的 Actor，并创建其替换（`replacement`），以响应最终到达的`Terminated`消息。
 
+### PoisonPill
+
+你还可以向 Actor 发送`akka.actor.PoisonPill`消息，该消息将在处理消息时停止 Actor。`PoisonPill`作为普通消息排队，并将在邮箱中已排队的消息之后处理。
+
+```java
+victim.tell(akka.actor.PoisonPill.getInstance(), ActorRef.noSender());
 ```
-akka.persistence.journal.leveldb-shared.store.native = off
+
+### 杀死一个 Actor
+
+你也可以通过发送一条`Kill`消息来“杀死”一个 Actor。与`PoisonPill`不同的是，这可能会使 Actor 抛出`ActorKilledException`，并触发失败。Actor 将暂停操作，并询问其监督者如何处理故障，这可能意味着恢复 Actor、重新启动或完全终止 Actor。更多信息，请参阅「[What Supervision Means](https://doc.akka.io/docs/akka/current/general/supervision.html#supervision-directives)」。
+
+像这样使用`Kill`：
+
+```java
+victim.tell(akka.actor.Kill.getInstance(), ActorRef.noSender());
+
+// expecting the actor to indeed terminate:
+expectTerminated(Duration.ofSeconds(3), victim);
 ```
 
-在你的 Akka 配置中，LevelDB Java 端口仅用于测试目的。
+一般来说，虽然在设计 Actor 交互时不建议过分依赖于`PoisonPill`或`Kill`，但通常情况下，鼓励使用诸如`PleaseCleanupAndStop`之类的协议级（`protocol-level`）消息，因为 Actor 知道如何处理这些消息。像`PoisonPill`和`Kill`这样的信息是为了能够停止那些你无法控制的 Actor  的。
 
-还要注意的是，对于 LevelDB Java 端口，你将需要以下依赖项：
+### 优雅的停止
+
+如果你需要等待终止或组合多个 Actor 的有序终止，则`gracefulStop`非常有用：
+
+```java
+import static akka.pattern.Patterns.gracefulStop;
+import akka.pattern.AskTimeoutException;
+import java.util.concurrent.CompletionStage;
+
+try {
+  CompletionStage<Boolean> stopped =
+      gracefulStop(actorRef, Duration.ofSeconds(5), Manager.SHUTDOWN);
+  stopped.toCompletableFuture().get(6, TimeUnit.SECONDS);
+  // the actor has been stopped
+} catch (AskTimeoutException e) {
+  // the actor wasn't stopped within 5 seconds
+}
+```
+
+当`gracefulStop()`成功返回时，Actor 的`postStop()`钩子将被执行：在`postStop()`结尾和`gracefulStop()`返回之间存在一个“发生在边缘之前（`happens-before edge`）”的关系。
+
+在上面的例子中，一个定制的`Manager.Shutdown`消息被发送到目标 Actor，以启动停止 Actor 的过程。你可以为此使用`PoisonPill`，但在停止目标 Actor 之前，你与其他 Actor 进行交互的可能性很有限。可以在`postStop`中处理简单的清理任务。
+
+- **警告**：请记住，停止的 Actor 和取消注册的 Actor 是彼此异步发生的独立事件。因此，在`gracefulStop()`返回后，你可能会发现该名称仍在使用中。为了保证正确的注销，只能重用你控制的监督者中的名称，并且只响应`Terminated`消息，即不用于顶级 Actor。
+
+### 协调关闭
+
+有一个名为`CoordinatedShutdown`的扩展，它将按特定顺序停止某些 Actor 和服务，并在关闭过程中执行注册的任务。
+
+停机阶段（`shutdown phases`）的顺序在配置`akka.coordinated-shutdown.phases`中定义。默认阶段定义为：
 
 ```xml
-<!-- Maven -->
-<dependency>
-  <groupId>org.iq80.leveldb</groupId>
-  <artifactId>leveldb</artifactId>
-  <version>0.9</version>
-</dependency>
+# CoordinatedShutdown is enabled by default and will run the tasks that
+# are added to these phases by individual Akka modules and user logic.
+#
+# The phases are ordered as a DAG by defining the dependencies between the phases
+# to make sure shutdown tasks are run in the right order.
+#
+# In general user tasks belong in the first few phases, but there may be use
+# cases where you would want to hook in new phases or register tasks later in
+# the DAG.
+#
+# Each phase is defined as a named config section with the
+# following optional properties:
+# - timeout=15s: Override the default-phase-timeout for this phase.
+# - recover=off: If the phase fails the shutdown is aborted
+#                and depending phases will not be executed.
+# - enabled=off: Skip all tasks registered in this phase. DO NOT use
+#                this to disable phases unless you are absolutely sure what the
+#                consequences are. Many of the built in tasks depend on other tasks
+#                having been executed in earlier phases and may break if those are disabled.
+# depends-on=[]: Run the phase after the given phases
+phases {
 
-<!-- Gradle -->
-dependencies {
-  compile group: 'org.iq80.leveldb', name: 'leveldb', version: '0.9'
+  # The first pre-defined phase that applications can add tasks to.
+  # Note that more phases can be added in the application's
+  # configuration by overriding this phase with an additional
+  # depends-on.
+  before-service-unbind {
+  }
+
+  # Stop accepting new incoming connections.
+  # This is where you can register tasks that makes a server stop accepting new connections. Already
+  # established connections should be allowed to continue and complete if possible.
+  service-unbind {
+    depends-on = [before-service-unbind]
+  }
+
+  # Wait for requests that are in progress to be completed.
+  # This is where you register tasks that will wait for already established connections to complete, potentially
+  # also first telling them that it is time to close down.
+  service-requests-done {
+    depends-on = [service-unbind]
+  }
+
+  # Final shutdown of service endpoints.
+  # This is where you would add tasks that forcefully kill connections that are still around.
+  service-stop {
+    depends-on = [service-requests-done]
+  }
+
+  # Phase for custom application tasks that are to be run
+  # after service shutdown and before cluster shutdown.
+  before-cluster-shutdown {
+    depends-on = [service-stop]
+  }
+
+  # Graceful shutdown of the Cluster Sharding regions.
+  # This phase is not meant for users to add tasks to.
+  cluster-sharding-shutdown-region {
+    timeout = 10 s
+    depends-on = [before-cluster-shutdown]
+  }
+
+  # Emit the leave command for the node that is shutting down.
+  # This phase is not meant for users to add tasks to.
+  cluster-leave {
+    depends-on = [cluster-sharding-shutdown-region]
+  }
+
+  # Shutdown cluster singletons
+  # This is done as late as possible to allow the shard region shutdown triggered in
+  # the "cluster-sharding-shutdown-region" phase to complete before the shard coordinator is shut down.
+  # This phase is not meant for users to add tasks to.
+  cluster-exiting {
+    timeout = 10 s
+    depends-on = [cluster-leave]
+  }
+
+  # Wait until exiting has been completed
+  # This phase is not meant for users to add tasks to.
+  cluster-exiting-done {
+    depends-on = [cluster-exiting]
+  }
+
+  # Shutdown the cluster extension
+  # This phase is not meant for users to add tasks to.
+  cluster-shutdown {
+    depends-on = [cluster-exiting-done]
+  }
+
+  # Phase for custom application tasks that are to be run
+  # after cluster shutdown and before ActorSystem termination.
+  before-actor-system-terminate {
+    depends-on = [cluster-shutdown]
+  }
+
+  # Last phase. See terminate-actor-system and exit-jvm above.
+  # Don't add phases that depends on this phase because the
+  # dispatcher and scheduler of the ActorSystem have been shutdown.
+  # This phase is not meant for users to add tasks to.
+  actor-system-terminate {
+    timeout = 10 s
+    depends-on = [before-actor-system-terminate]
+  }
 }
-
-<!-- sbt -->
-libraryDependencies += "org.iq80.leveldb" % "leveldb" % "0.9"
 ```
-- **警告**：由于`TestActorRef`具有同步性，因此无法使用它来测试持久性提供的类（即`PersistentActor`和`AtLeastOnceDelivery`）。这些特性需要能够在后台执行异步任务，以便处理与持久性相关的内部事件。当「[测试基于持久性的项目](https://doc.akka.io/docs/akka/current/testing.html#async-integration-testing)」时，总是依赖于使用`TestKit`的异步消息传递。
 
-## 配置
-持久性模块有几个配置属性，请参阅参考「[配置](https://doc.akka.io/docs/akka/current/general/configuration.html#config-akka-persistence)」。
+如果需要，可以在应用程序的配置中添加更多的阶段（`phases`），方法是使用附加的`depends-on`覆盖阶段。尤其是在`before-service-unbind`、`before-cluster-shutdown`和`before-actor-system-terminate`的阶段，是针对特定于应用程序的阶段或任务的。
 
-## 多持久性插件配置
-默认情况下，持久性 Actor 将使用在`reference.conf`配置资源的以下部分中配置的“默认”日志和快照存储插件：
+默认阶段是以单个线性顺序定义的，但是通过定义阶段之间的依赖关系，可以将阶段排序为有向非循环图（`DAG`）。阶段是按 DAG 的拓扑排序的。
 
-```
-# Absolute path to the default journal plugin configuration entry.
-akka.persistence.journal.plugin = "akka.persistence.journal.inmem"
-# Absolute path to the default snapshot store plugin configuration entry.
-akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.local"
-```
-注意，在这种情况下，Actor 只重写`persistenceId`方法：
+可以将任务添加到具有以下内容的阶段：
 
 ```java
-abstract class AbstractPersistentActorWithDefaultPlugins extends AbstractPersistentActor {
-  @Override
-  public String persistenceId() {
-    return "123";
-  }
-}
+CoordinatedShutdown.get(system)
+    .addTask(
+        CoordinatedShutdown.PhaseBeforeServiceUnbind(),
+        "someTaskName",
+        () -> {
+          return akka.pattern.Patterns.ask(someActor, "stop", Duration.ofSeconds(5))
+              .thenApply(reply -> Done.getInstance());
+        });
 ```
-当持久性 Actor 重写`journalPluginId`和`snapshotPluginId`方法时，Actor 将由这些特定的持久性插件而不是默认值提供服务：
+
+在任务完成后，应返回`CompletionStage<Done>`。任务名称参数仅用于调试或日志记录。
+
+添加到同一阶段的任务是并行执行的，没有任何排序假设。在完成前一阶段的所有任务之前，下一阶段将不会启动。
+
+如果任务没有在配置的超时内完成（请参见「[reference.conf](https://doc.akka.io/docs/akka/current/general/configuration.html#config-akka-actor)」），则下一个阶段无论如何都会启动。如果任务失败或未在超时内完成，则可以为一个阶段配置`recover=off`以中止关闭过程的其余部分。
+
+任务通常应在系统启动后尽早注册。运行时，将执行已注册的协调关闭任务，但不会运行添加得太晚的任务。
+
+要启动协调关闭进程，可以对`CoordinatedShutdown`扩展调用`runAll`：
 
 ```java
-abstract class AbstractPersistentActorWithOverridePlugins extends AbstractPersistentActor {
-  @Override
-  public String persistenceId() {
-    return "123";
-  }
-
-  // Absolute path to the journal plugin configuration entry in the `reference.conf`
-  @Override
-  public String journalPluginId() {
-    return "akka.persistence.chronicle.journal";
-  }
-
-  // Absolute path to the snapshot store plugin configuration entry in the `reference.conf`
-  @Override
-  public String snapshotPluginId() {
-    return "akka.persistence.chronicle.snapshot-store";
-  }
-}
-```
-请注意，`journalPluginId`和`snapshotPluginId`必须引用正确配置的`reference.conf`插件条目，这些插件具有标准类属性以及特定于这些插件的设置，即：
-
-```
-# Configuration entry for the custom journal plugin, see `journalPluginId`.
-akka.persistence.chronicle.journal {
-  # Standard persistence extension property: provider FQCN.
-  class = "akka.persistence.chronicle.ChronicleSyncJournal"
-  # Custom setting specific for the journal `ChronicleSyncJournal`.
-  folder = $${user.dir}/store/journal
-}
-# Configuration entry for the custom snapshot store plugin, see `snapshotPluginId`.
-akka.persistence.chronicle.snapshot-store {
-  # Standard persistence extension property: provider FQCN.
-  class = "akka.persistence.chronicle.ChronicleSnapshotStore"
-  # Custom setting specific for the snapshot store `ChronicleSnapshotStore`.
-  folder = $${user.dir}/store/snapshot
-}
+CompletionStage<Done> done =
+    CoordinatedShutdown.get(system).runAll(CoordinatedShutdown.unknownReason());
 ```
 
-## 在运行时提供持久性插件配置
-默认情况下，持久性 Actor 将使用在`ActorSystem`创建时加载的配置来创建日志和快照存储插件。
+多次调用`runAll`方法是安全的，它只能运行一次。
 
-当持久性 Actor 重写`journalPluginConfig`和`snapshotPluginConfig`方法时，Actor 将使用声明的`Config`对象，并对默认配置进行回退（`fallback`）。它允许在运行时动态配置日志和快照存储：
+这也意味着`ActorSystem`将在最后一个阶段终止。默认情况下，不会强制停止 JVM（如果终止了所有非守护进程线程，则会停止 JVM）。要启用硬`System.exit`作为最终操作，可以配置：
 
 ```java
-abstract class AbstractPersistentActorWithRuntimePluginConfig extends AbstractPersistentActor
-    implements RuntimePluginConfig {
-  // Variable that is retrieved at runtime, from an external service for instance.
-  String runtimeDistinction = "foo";
+akka.coordinated-shutdown.exit-jvm = on
+```
 
-  @Override
-  public String persistenceId() {
-    return "123";
+当使用「[Akka 集群](https://doc.akka.io/docs/akka/current/cluster-usage.html
+)」时，当集群节点将自己视为`Exiting`时，`CoordinatedShutdown`将自动运行，即从另一个节点离开将触发离开节点上的关闭过程。当使用 Akka 集群时，会自动添加集群的优雅离开任务，包括集群单例的优雅关闭和集群分片，即运行关闭过程也会触发尚未进行的优雅离开。
+
+默认情况下，当 JVM 进程退出时，例如通过`kill SIGTERM`信号（`SIGINT`时`Ctrl-C`不起作用），将运行`CoordinatedShutdown`。此行为可以通过以下方式禁用：
+
+```java
+akka.coordinated-shutdown.run-by-jvm-shutdown-hook=off
+```
+
+如果你有特定于应用程序的 JVM 关闭钩子，建议你通过`CoordinatedShutdown`对它们进行注册，以便它们在 Akka 内部关闭钩子之前运行，例如关闭 Akka 远程处理。
+
+```java
+CoordinatedShutdown.get(system)
+    .addJvmShutdownHook(() -> System.out.println("custom JVM shutdown hook..."));
+```
+
+对于某些测试，可能不希望通过`CoordinatedShutdown`来终止`ActorSystem`。你可以通过将以下内容添加到测试时使用的`ActorSystem`的配置中来禁用此功能：
+
+```xml
+# Don't terminate ActorSystem via CoordinatedShutdown in tests
+akka.coordinated-shutdown.terminate-actor-system = off
+akka.coordinated-shutdown.run-by-jvm-shutdown-hook = off
+akka.cluster.run-coordinated-shutdown-when-down = off
+```
+
+## Become/Unbecome
+### 升级
+
+Akka 支持在运行时对 Actor 的消息循环（例如其实现）进行热交换：从 Actor 内部调用`context.become`方法。`become`采用实现新消息处理程序的`PartialFunction<Object, BoxedUnit>`。热交换代码（`hotswapped code`）保存在一个`Stack`中，可以推送和弹出。
+
+- **警告**：请注意，Actor 在被其监督者重新启动时将恢复其原始行为。
+
+要使用`become`热交换 Actor 的行为，可以参考以下操作：
+
+```java
+static class HotSwapActor extends AbstractActor {
+  private AbstractActor.Receive angry;
+  private AbstractActor.Receive happy;
+
+  public HotSwapActor() {
+    angry =
+        receiveBuilder()
+            .matchEquals(
+                "foo",
+                s -> {
+                  getSender().tell("I am already angry?", getSelf());
+                })
+            .matchEquals(
+                "bar",
+                s -> {
+                  getContext().become(happy);
+                })
+            .build();
+
+    happy =
+        receiveBuilder()
+            .matchEquals(
+                "bar",
+                s -> {
+                  getSender().tell("I am already happy :-)", getSelf());
+                })
+            .matchEquals(
+                "foo",
+                s -> {
+                  getContext().become(angry);
+                })
+            .build();
   }
 
-  // Absolute path to the journal plugin configuration entry in the `reference.conf`
   @Override
-  public String journalPluginId() {
-    return "journal-plugin-" + runtimeDistinction;
+  public Receive createReceive() {
+    return receiveBuilder()
+        .matchEquals("foo", s -> getContext().become(angry))
+        .matchEquals("bar", s -> getContext().become(happy))
+        .build();
   }
+}
+```
 
-  // Absolute path to the snapshot store plugin configuration entry in the `reference.conf`
+`become`方法的这种变体对于许多不同的事情都很有用，例如实现有限状态机（`FSM`，例如「[Dining Hakkers](https://developer.lightbend.com/start/)」）。它将替换当前行为（即行为堆栈的顶部），这意味着你不使用`unbecome`，而是始终显式安装（`installed`）下一个行为。
+
+另一种使用`become`的方法不是替换而是添加到行为堆栈的顶部。在这种情况下，必须注意确保`pop`操作的数量（即`unbecome`）与`push`操作的数量在长期内匹配，否则这将导致内存泄漏，这就是为什么此行为不是默认行为。
+
+```java
+static class Swapper extends AbstractLoggingActor {
   @Override
-  public String snapshotPluginId() {
-    return "snapshot-store-plugin-" + runtimeDistinction;
+  public Receive createReceive() {
+    return receiveBuilder()
+        .matchEquals(
+            Swap,
+            s -> {
+              log().info("Hi");
+              getContext()
+                  .become(
+                      receiveBuilder()
+                          .matchEquals(
+                              Swap,
+                              x -> {
+                                log().info("Ho");
+                                getContext()
+                                    .unbecome(); // resets the latest 'become' (just for fun)
+                              })
+                          .build(),
+                      false); // push on top instead of replace
+            })
+        .build();
   }
+}
 
-  // Configuration which contains the journal plugin id defined above
+static class SwapperApp {
+  public static void main(String[] args) {
+    ActorSystem system = ActorSystem.create("SwapperSystem");
+    ActorRef swapper = system.actorOf(Props.create(Swapper.class), "swapper");
+    swapper.tell(Swap, ActorRef.noSender()); // logs Hi
+    swapper.tell(Swap, ActorRef.noSender()); // logs Ho
+    swapper.tell(Swap, ActorRef.noSender()); // logs Hi
+    swapper.tell(Swap, ActorRef.noSender()); // logs Ho
+    swapper.tell(Swap, ActorRef.noSender()); // logs Hi
+    swapper.tell(Swap, ActorRef.noSender()); // logs Ho
+    system.terminate();
+  }
+}
+```
+
+### 对 Scala Actor 嵌套接收进行编码，而不会意外泄漏内存
+
+请参阅「[Unnested receive example](https://github.com/akka/akka/blob/v2.5.21/akka-docs/src/test/scala/docs/actor/UnnestedReceives.scala)」。
+
+## Stash
+
+`AbstractActorWithStash`类使 Actor 能够临时存储"不能"或"不应该"使用 Actor 当前行为处理的消息。更改 Actor 的消息处理程序后，即在调用`getContext().become()`或`getContext().unbecome()`之前，所有隐藏的消息都可以“`unstashed`”，从而将它们预存到 Actor 的邮箱中。这样，可以按照与最初接收到的消息相同的顺序处理隐藏的消息。扩展`AbstractActorWithStash`的 Actor 将自动获得基于`deque`的邮箱。
+
+- **注释**：抽象类`AbstractActorWithStash`实现了标记接口`RequiresMessageQueue<DequeBasedMessageQueueSemantics>`，如果希望对邮箱进行更多控制，请参阅有关邮箱的文档：「[Mailboxes](https://doc.akka.io/docs/akka/current/mailboxes.html)」。
+
+下面是`AbstractActorWithStash`类的一个示例：
+
+```java
+static class ActorWithProtocol extends AbstractActorWithStash {
   @Override
-  public Config journalPluginConfig() {
-    return ConfigFactory.empty()
-        .withValue(
-            "journal-plugin-" + runtimeDistinction,
+  public Receive createReceive() {
+    return receiveBuilder()
+        .matchEquals(
+            "open",
+            s -> {
+              getContext()
+                  .become(
+                      receiveBuilder()
+                          .matchEquals(
+                              "write",
+                              ws -> {
+                                /* do writing */
+                              })
+                          .matchEquals(
+                              "close",
+                              cs -> {
+                                unstashAll();
+                                getContext().unbecome();
+                              })
+                          .matchAny(msg -> stash())
+                          .build(),
+                      false);
+            })
+        .matchAny(msg -> stash())
+        .build();
+  }
+}
+```
+
+调用`stash()`会将当前消息（Actor 最后收到的消息）添加到 Actor 的`stash`中。它通常在处理 Actor 消息处理程序中的默认情况时调用，以存储其他情况未处理的消息。将同一条消息存储两次是非法的；这样做会导致`IllegalStateException`。`stash`也可以是有界的，在这种情况下，调用`stash()`可能导致容量冲突（`capacity violation`），从而导致`StashOverflowException`。可以使用邮箱配置的`stash-capacity`设置（一个`int`值）存储容量。
+
+调用`unstashAll()`将消息从`stash`排队到 Actor 的邮箱，直到达到邮箱的容量（如果有），请注意，`stash`中的消息是预先发送到邮箱的。如果有界邮箱溢出，将引发`MessageQueueAppendFailedException`。调用`unstashAll()`后，`stash`保证为空。
+
+`stash`由`scala.collection.immutable.Vector`支持。因此，即使是非常大量的消息也可能被存储起来，而不会对性能产生重大影响。
+
+请注意，与邮箱不同，`stash`是短暂的 Actor 状态的一部分。因此，它应该像 Actor 状态中具有相同属性的其他部分一样进行管理。`preRestart`的`AbstractActorWithStash`实现将调用`unstashAll()`，这通常是需要的行为。
+
+- **注释**：如果你想强制你的 Actor 只能使用无界的`stash`，那么你应该使用`AbstractActorWithUnboundedStash`类。
+
+## Actor 和异常
+
+当 Actor 处理消息时，可能会引发某种异常，例如数据库异常。
+
+### 消息发生了什么
+
+如果在处理邮件时引发异常（即从邮箱中取出并移交给当前行为），则此邮件将丢失。重要的是要知道它不会放回邮箱。因此，如果你想重试处理消息，你需要自己处理它，捕获异常并重试处理流程（`retry your flow`）。确保对重试次数进行了限制，因为你不希望系统进行`livelock`，否则的话，这会在程序没有进展的情况下消耗大量 CPU 周期。
+
+### 邮箱发生了什么
+
+如果在处理邮件时引发异常，则邮箱不会发生任何异常。如果 Actor 重新启动，则会出现相同的邮箱。因此，该邮箱上的所有邮件也将在那里。
+
+### Actor 发现了什么
+
+如果 Actor 内的代码抛出异常，则该 Actor 将被挂起，并且监控过程将启动。根据监督者的决定，Actor 被恢复（好像什么都没有发生）、重新启动（清除其内部状态并从头开始）或终止。
+
+## 初始化模式
+
+Actor 的丰富生命周期钩子提供了一个有用的工具箱来实现各种初始化模式（`initialization patterns`）。在`ActorRef`的生命周期中，Actor 可能会经历多次重新启动，旧实例被新实例替换，外部观察者看不见内部的变化，外部观察者只看到`ActorRef`引用。
+
+每次实例化一个 Actor 时，可能都需要初始化，但有时只需要在创建`ActorRef`时对第一个实例进行初始化。以下部分提供了不同初始化需求的模式。
+
+### 通过构造函数初始化
+
+使用构造函数进行初始化有很多好处。首先，它让使用`val`字段存储在 Actor 实例的生命周期中不发生更改的任何状态成为可能，从而使 Actor 的实现更加健壮。当创建一个调用`actorOf`的 Actor 实例时，也会在重新启动时调用构造函数，因此 Actor 的内部始终可以假定发生了正确的初始化。这也是这种方法的缺点，因为在某些情况下，人们希望避免在重新启动时重新初始化内部信息。例如，在重新启动时保护子 Actor 通常很有用。下面的部分提供了这个案例的模式。
+
+
+### 通过 preStart 初始化
+
+在第一个实例的初始化过程中，即在创建`ActorRef`时，只直接调用一次 Actor 的`preStart()`方法。在重新启动的情况下，`postRestart()`调用`preStart()`，因此如果不重写，则在每次重新启动时都会调用`preStart()`。但是，通过重写`postRestart()`，可以禁用此行为，并确保只有一个对`preStart()`的调用。
+
+此模式的一个有用用法是在重新启动期间禁用为子级创建新的`ActorRef`。这可以通过重写`preRestart()`来实现。以下是这些生命周期挂钩的默认实现：
+
+```java
+@Override
+public void preStart() {
+  // Initialize children here
+}
+
+// Overriding postRestart to disable the call to preStart()
+// after restarts
+@Override
+public void postRestart(Throwable reason) {}
+
+// The default implementation of preRestart() stops all the children
+// of the actor. To opt-out from stopping the children, we
+// have to override preRestart()
+@Override
+public void preRestart(Throwable reason, Optional<Object> message) throws Exception {
+  // Keep the call to postStop(), but no stopping of children
+  postStop();
+}
+```
+
+请注意，子 Actor 仍然重新启动，但没有创建新的`ActorRef`。可以递归地为子级应用相同的原则，确保只在创建引用时调用它们的`preStart()`方法。
+
+有关更多信息，请参阅「[What Restarting Means](https://doc.akka.io/docs/akka/current/general/supervision.html#supervision-restart)」。
+
+### 通过消息传递初始化
+
+有些情况下，在构造函数中无法传递 Actor 初始化所需的所有信息，例如在存在循环依赖项的情况下。在这种情况下，Actor 应该监听初始化消息，并使用`become()`或有限状态机（`finite state-machine`）状态转换来编码 Actor 的初始化和未初始化状态。
+
+```java
+@Override
+public Receive createReceive() {
+  return receiveBuilder()
+      .matchEquals(
+          "init",
+          m1 -> {
+            initializeMe = "Up and running";
             getContext()
-                .getSystem()
-                .settings()
-                .config()
-                .getValue(
-                    "journal-plugin") // or a very different configuration coming from an external
-            // service.
-            );
-  }
-
-  // Configuration which contains the snapshot store plugin id defined above
-  @Override
-  public Config snapshotPluginConfig() {
-    return ConfigFactory.empty()
-        .withValue(
-            "snapshot-plugin-" + runtimeDistinction,
-            getContext()
-                .getSystem()
-                .settings()
-                .config()
-                .getValue(
-                    "snapshot-store-plugin") // or a very different configuration coming from an
-            // external service.
-            );
-  }
+                .become(
+                    receiveBuilder()
+                        .matchEquals(
+                            "U OK?",
+                            m2 -> {
+                              getSender().tell(initializeMe, getSelf());
+                            })
+                        .build());
+          })
+      .build();
 }
 ```
 
-## 更多可见
+如果 Actor 可能在初始化消息之前收到消息，那么一个有用的工具可以是`Stash`存储消息，直到初始化完成，然后在 Actor 初始化之后重放消息。
 
-- [Persistent FSM](https://doc.akka.io/docs/akka/current/persistence-fsm.html)
-- [Building a new storage backend](https://doc.akka.io/docs/akka/current/persistence-journals.html)
+- **警告**：此模式应小心使用，并且仅当上述模式均不适用时才应用。其中一个潜在的问题是，消息在发送到远程 Actor 时可能会丢失。此外，在未初始化状态下发布`ActorRef`可能会导致在初始化完成之前接收到用户消息的情况。
+
+
 
 ----------
 
-**英文原文链接**：[Persistence](https://doc.akka.io/docs/akka/current/persistence.html).
+**英文原文链接**：[Actors](https://doc.akka.io/docs/akka/current/actors.html).
 
 
 ----------
