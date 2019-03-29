@@ -290,7 +290,7 @@ try {
   - 受监督的子级
   - 生命周期监控
   - 如`Become/Unbecome`中所述的热交换行为栈（`hotswap behavior stack`）
-  - 
+ 
 其余可见的方法是用户可重写的生命周期钩子方法，如下所述：
 
 ```java

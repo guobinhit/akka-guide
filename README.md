@@ -38,7 +38,7 @@ Akka 是一个用 Scala 编写的库，用于在 JVM 平台上简化编写可容
   - [消息传递可靠性](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/message-delivery-reliability.md)
   - [配置](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/configuration.md)
 - [Actors](https://github.com/guobinhit/akka-guide/blob/master/README.md)
-  - [Actors](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/actors.md)
+  - [Actors](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/actors.md)（详述了 Akka 中常见的 API 操作，**强烈推荐阅读**）
   - [容错](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/fault-tolerance.md)
   - [调度器](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/dispatchers.md)
   - [信箱](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/mailboxes.md)
