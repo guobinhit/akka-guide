@@ -54,7 +54,7 @@ Akka 是一个用 Scala 编写的库，用于在 JVM 平台上简化编写可容
 - [Akka 类型](https://doc.akka.io/docs/akka/current/general/index.html)
   - [入门指南](https://doc.akka.io/docs/akka/current/typed/guide/index.html)
   - [Actors](https://doc.akka.io/docs/akka/current/typed/actors.html)
-  - [调度器](https://doc.akka.io/docs/akka/current/typed/dispatchers.html)
+  - [调度器](https://github.com/guobinhit/akka-guide/blob/master/articles/typed/dispatchers.md)
   - [共存](https://github.com/guobinhit/akka-guide/blob/master/articles/typed/coexisting.md)
   - [Actor 生命周期](https://doc.akka.io/docs/akka/current/typed/actor-lifecycle.html)
   - [交互模式](https://doc.akka.io/docs/akka/current/typed/interaction-patterns.html)
