@@ -67,7 +67,7 @@ Akka 是一个用 Scala 编写的库，用于在 JVM 平台上简化编写可容
   - [集群单例](https://doc.akka.io/docs/akka/current/typed/cluster-singleton.html)
   - [集群分片](https://doc.akka.io/docs/akka/current/typed/cluster-sharding.html)
   - [持久性](https://doc.akka.io/docs/akka/current/typed/persistence.html)
-  - [作为 FSM 的行为](https://doc.akka.io/docs/akka/current/typed/fsm.html)
+  - [作为 FSM 的行为](https://github.com/guobinhit/akka-guide/blob/master/articles/typed/fsm.html)
   - [测试](https://doc.akka.io/docs/akka/current/typed/testing.html)
 - [集群](https://github.com/guobinhit/akka-guide/blob/master/README.md)
   - [集群规范](https://github.com/guobinhit/akka-guide/blob/master/articles/clustering/cluster-specification.md) 
