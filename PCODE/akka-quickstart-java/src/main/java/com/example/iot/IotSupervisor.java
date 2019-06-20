@@ -9,7 +9,7 @@ import akka.event.LoggingAdapter;
  * @author Charies Gavin
  *         https:github.com/guobinhit
  * @date 1/16/19,1:34 PM
- * @description
+ * @description super level actor of iot system
  */
 public class IotSupervisor extends AbstractActor {
     private final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);

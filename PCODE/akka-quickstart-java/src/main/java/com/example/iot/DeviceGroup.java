@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
  * @author Charies Gavin
  *         https:github.com/guobinhit
  * @date 1/16/19,7:19 PM
- * @description
+ * @description device group actor
  */
 public class DeviceGroup extends AbstractActor {
     private final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);

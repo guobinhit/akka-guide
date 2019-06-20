@@ -14,7 +14,7 @@ import java.util.Set;
  * @author Charies Gavin
  *         https:github.com/guobinhit
  * @date 1/17/19,11:15 AM
- * @description
+ * @description device group query actor
  */
 public class DeviceGroupQuery extends AbstractActor {
     public static final class CollectionTimeout {

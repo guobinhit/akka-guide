@@ -9,7 +9,7 @@ import java.io.IOException;
  * @author Charies Gavin
  *         https:github.com/guobinhit
  * @date 1/16/19,1:41 PM
- * @description
+ * @description main class of iot system
  */
 public class IotMain {
     public static void main(String[] args) throws IOException {

@@ -1,6 +1,6 @@
 # 第 2 部分: 创建第一个 Actor
 ## 依赖
-在你项目中添加如下依赖：
+在你的项目中添加如下依赖：
 
 ```xml
 <!-- Maven -->
@@ -22,11 +22,11 @@ libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.19"
 ## 简介
 随着对 Actor 层次结构和行为的理解，剩下的问题是如何将物联网（`IoT`）系统的顶级组件映射到 Actor。让代表设备和仪表盘的 Actor 处于顶层是很有吸引力的。相反，我们建议创建一个表示整个应用程序的显式组件。换句话说，我们的物联网系统中只有一个顶级的 Actor。创建的管理设备和仪表板的组件将是此 Actor 的子 Actor。这允许我们将示例用例的体系结构图重构为 Actor 树：
 
-![actor-tree](https://github.com/guobinhit/akka-guide/blob/master/images/akka-guide-part2/actor-tree.png)
+![actor-tree](https://github.com/guobinhit/akka-guide/blob/master/images/getting-started-guide/tutorial_2/actor-tree.png)
 
 我们可以用几行简单的代码定义第一个 Actor，即`IotSupervisor`。为了开始你的教程应用程序：
 
-- 在适当的包路径下中创建新的`IotSupervisor`源文件，例如在`com.example`包中；
+- 在适当的包路径下创建新的`IotSupervisor`源文件，例如在`com.example`包中；
 - 将以下代码粘贴到新文件中以定义`IotSupervisor`。
 
 ```java

@@ -14,7 +14,7 @@ import java.util.Map;
  * @author Charies Gavin
  *         https:github.com/guobinhit
  * @date 1/16/19,7:20 PM
- * @description
+ * @description device manager actor
  */
 public class DeviceManager extends AbstractActor {
     private final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);

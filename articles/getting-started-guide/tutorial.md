@@ -3,7 +3,7 @@
 
 ## 先决条件
 
-你应该提前跟着「[快速入门 Akka Java 指南](https://github.com/guobinhit/akka-guide/blob/master/articles/qucikstart-akka-java.md)」中的指令来下载并运行`Hello World`示例。你将使用它作为种子项目（`seed project `），并添加本教程中描述的功能。
+你应该提前跟着「[快速入门 Akka Java 指南](https://github.com/guobinhit/akka-guide/blob/master/articles/qucikstart-akka-java.md)」中的指令来下载并运行`Hello World`示例。你将使用它作为种子项目，并添加本教程中描述的功能。
 
 ##  IoT 示例用例
 

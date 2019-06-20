@@ -10,10 +10,10 @@ import akka.event.LoggingAdapter;
 import java.io.IOException;
 
 /**
- * author:Charies Gavin
- * date:2019/01/17,16:11
- * https:github.com/guobinhit
- * description: MyActor
+ * @author Charies Gavin
+ *         https:github.com/guobinhit
+ * @date 6/20/19,4:25 PM
+ * @description MyActor
  */
 public class MyActor extends AbstractActor {
     private final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);

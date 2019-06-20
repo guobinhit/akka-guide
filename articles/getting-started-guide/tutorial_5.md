@@ -1,6 +1,6 @@
 # 第 5 部分: 查询设备组
 ## 依赖
-在你项目中添加如下依赖：
+在你的项目中添加如下依赖：
 
 ```xml
 <!-- Maven -->
@@ -136,7 +136,7 @@ public enum DeviceTimedOut implements TemperatureReading {
 由于我们需要一种方法来指示我们愿意等待响应的时间，现在是时候引入一个我们还没有使用的新的 Akka 特性，即内置的调度器（`built-in scheduler`）功能了。使用调度器（`scheduler`）很简单：
 
 - 我们可以从`ActorSystem`中获取调度器，而`ActorSystem`又可以从 Actor 的上下文中访问：`getContext().getSystem().scheduler()`。这需要一个`ExecutionContext`，它是将执行计时器任务本身的线程池。在我们的示例中，我们通过传入`getContext().dispatcher()`来使用与 Actor 相同的调度器。
-- `scheduler.scheduleOnce(time, actorRef, message, executor, sender)`方法将在指定的`time`将消息`message`调度到将来（`future`），并将其发送给 Actor 的`ActorRef`。
+- `scheduler.scheduleOnce(time, actorRef, message, executor, sender)`方法将在指定的`time`将消息`message`调度到`Future`，并将其发送给 Actor 的`ActorRef`。
 
 我们需要创建一个表示查询超时的消息。为此，我们创建了一个没有任何参数的简单消息`CollectionTimeout`。`scheduleOnce`的返回值是`Cancellable`，如果查询及时成功完成，可以使用它取消定时器。在查询开始时，我们需要询问每个设备 Actor 当前的温度。为了能够快速检测那些在`ReadTemperature`信息之前停止的设备，我们还将观察每个 Actor。这样，对于那些在查询生命周期中停止的消息，我们就可以得到`Terminated`消息，因此我们不需要等到超时时再将这些消息标记为不可用。
 
@@ -726,9 +726,9 @@ public void testCollectTemperaturesFromAllActiveDevices() {
 ## 总结
 在物联网（`IoT`）系统的背景下，本指南介绍了以下概念。如有必要，你可以通过以下链接进行查看：
 
-- [The hierarchy of actors and their lifecycle](https://doc.akka.io/docs/akka/current/guide/tutorial_1.html)
-- [The importance of designing messages for flexibility](https://doc.akka.io/docs/akka/current/guide/tutorial_3.html)
-- [How to watch and stop actors, if necessary](https://doc.akka.io/docs/akka/current/guide/tutorial_4.html#keeping-track-of-the-device-actors-in-the-group)
+- [Actor 的层级结构及其生命周期](https://github.com/guobinhit/akka-guide/blob/master/articles/getting-started-guide/tutorial_1.md)
+- [灵活性设计消息的重要性](https://github.com/guobinhit/akka-guide/blob/master/articles/getting-started-guide/tutorial_3.md)
+- [如有必要，如何监视和停止 Actor](https://github.com/guobinhit/akka-guide/blob/master/articles/getting-started-guide/tutorial_4.md)
 
 ## 下一步是什么？
 要继续你的 Akka 之旅，我们建议：

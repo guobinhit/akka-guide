@@ -11,7 +11,7 @@ import java.util.Optional;
  * @author Charies Gavin
  *         https:github.com/guobinhit
  * @date 1/16/19,4:25 PM
- * @description
+ * @description device actor
  */
 public class Device extends AbstractActor {
     private final LoggingAdapter log = Logging.getLogger(getContext().getSystem(), this);
