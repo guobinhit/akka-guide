@@ -1,8 +1,8 @@
 # 快速入门 Akka Java 指南
 
-Akka 是一个用于在 JVM 上构建高并发、分布式和容错的事件驱动应用程序的运行时工具包。Akka 既可以用于 Java，也可以用于 Scala。本指南通过描述 Java 版本的`Hello World`示例来介绍 Akka。如果你喜欢将 Akka 与 Scala 结合使用，请切换到「[快速入门 Akka Scala 指南](https://github.com/guobinhit/akka-guide/blob/master/articles/qucikstart-akka-scala.md)」。
+Akka 是一个用于在 JVM 上构建高并发、分布式和可容错的事件驱动应用程序的运行时工具包。Akka 既可以用于 Java，也可以用于 Scala。本指南通过描述 Java 版本的`Hello World`示例来介绍 Akka。如果你喜欢将 Akka 与 Scala 结合使用，请切换到「[快速入门 Akka Scala 指南](https://github.com/guobinhit/akka-guide/blob/master/articles/qucikstart-akka-scala.md)」。
 
-Actors 是 Akka 的执行单元。Actor 模型是一种抽象，它让编写正确的并发、并行和分布式系统更加容易。`Hello World`示例说明了 Akka 的基础知识。在 30 分钟内，你应该能够下载并运行示例，并使用本指南了解示例是如何构造的。这会让你初步了解 Akka 的魅力，希望这能够让你拥有深入了解 Akka 的兴趣（`This will get your feet wet, and hopefully inspire you to dive deeper into the wonderful sea of Akka`）！
+Actors 是 Akka 的执行单元。Actor 模型是一种抽象，它让编写正确的并发、并行和分布式系统更加容易。`Hello World`示例说明了 Akka 的基础知识。在 30 分钟内，你应该能够下载并运行示例，并使用本指南了解示例是如何构造的。这会让你初步了解 Akka 的魅力，希望这能够让你拥有深入了解 Akka 的兴趣！
 
 在体验过这个示例之后，想深入了解 Akka，阅读「[Getting Started Guide](https://doc.akka.io/docs/akka/2.5/guide/introduction.html?language=java)」是一个很好的选择。
 

@@ -1,5 +1,5 @@
 # Actor 模型如何满足现代分布式系统的需求？
-如前一主题「[为什么现代系统需要新的编程模型](https://github.com/guobinhit/akka-guide/blob/master/articles/actors-motivation.md)」所述，常见的编程实践不能合适地满足现代系统的需求。幸运的是，我们不需要放弃我们所知道的一切。相反，Actor 模型以一种原则性的方式解决了这些缺点，允许系统以更好地匹配我们的构思模型（`mental model`）的方式运行。Actor 模型抽象允许你从通信的角度来考虑你的代码，这与大型组织中人员之间发生的交换没有什么不同。
+如前一主题「[为什么现代系统需要新的编程模型](https://github.com/guobinhit/akka-guide/blob/master/articles/getting-started-guide/actors-motivation.md)」所述，常见的编程实践不能合适地满足现代系统的需求。幸运的是，我们不需要放弃我们所知道的一切。相反，Actor 模型以一种原则性的方式解决了这些缺点，允许系统以更好地匹配我们的构思模型（`mental model`）的方式运行。Actor 模型抽象允许你从通信的角度来考虑你的代码，这与大型组织中人员之间发生的交换没有什么不同。
 
 使用 Actor 允许我们：
 
@@ -15,7 +15,7 @@ Actor 不调用方法，而是互相发送消息。发送消息不会将线程�
 
 ![actor-interacting](https://github.com/guobinhit/akka-guide/blob/master/images/actor-intro/actor-interacting.png)
 
-传递消息和调用方法之间的一个重要区别是消息没有返回值。通过发送消息，Actor 将工作委托给另一个 Actor。正如我们在「调用栈的假象」中看到的，如果它期望返回值，那么发送 Actor 要么阻塞，要么在同一线程上执行另一个 Actor 的工作。相反，接收 Actor 在回复消息中传递结果。
+传递消息和调用方法之间的一个重要区别是消息没有返回值。通过发送消息，Actor 将工作委托给另一个 Actor。正如我们在「[调用栈的假象](https://github.com/guobinhit/akka-guide/blob/master/articles/getting-started-guide/actors-motivation.md#%E8%B0%83%E7%94%A8%E6%A0%88%E7%9A%84%E5%81%87%E8%B1%A1)」中看到的，如果它期望返回值，那么发送 Actor 要么阻塞，要么在同一线程上执行另一个 Actor 的工作。相反，接收 Actor 在回复消息中传递结果。
 
 我们模型中需要的第二个关键改变是恢复封装。Actor 对消息的反应就像对象对调用它们的方法“反应”一样。不同之处在于，不同于多个线程“突出（`protruding`）”到 Actor 中并对内部状态和不变量造成严重破坏，Actor 的执行动作独立于消息的发送者，并对传入消息依次作出反应，一次一个。当每个 Actor 按顺序处理发送给它的消息时，不同的 Actor 同时工作，以便 Actor 系统可以同时处理硬件所支持的尽可能多的消息。
 

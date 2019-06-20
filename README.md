@@ -1,6 +1,6 @@
 # Akka 中文指南
 
-Akka 是一个用 Scala 编写的库，用于在 JVM 平台上简化编写可容错的、高可伸缩性的 Java 和 Scala 的 Actor 模型应用，其同时提供了Java 和 Scala 的开发接口。Akka 允许我们专注于满足业务需求，而不是编写初级代码。在 Akka 里，Actor 之间通信的唯一机制就是消息传递。Akka 对 Actor 模型的使用提供了一个抽象级别，使得编写正确的并发、并行和分布式系统更加容易。Actor 模型贯穿了整个 Akka 库，为我们提供了一致的理解和使用它们的方法。
+Akka 是一个用 Scala 编写的库，用于在 JVM 平台上简化编写具有可容错的、高可伸缩性的 Java 和 Scala 的 Actor 模型应用，其同时提供了Java 和 Scala 的开发接口。Akka 允许我们专注于满足业务需求，而不是编写初级代码。在 Akka 中，Actor 之间通信的唯一机制就是消息传递。Akka 对 Actor 模型的使用提供了一个抽象级别，使得编写正确的并发、并行和分布式系统更加容易。Actor 模型贯穿了整个 Akka 库，为我们提供了一致的理解和使用它们的方法。
 
 
 - [Gitter Chat](https://gitter.im/akka/akka?source=orgpage)，Akka 在线交流平台；
@@ -16,7 +16,7 @@ Akka 是一个用 Scala 编写的库，用于在 JVM 平台上简化编写可容
 ## 目录
 
 - [安全公告](https://github.com/guobinhit/akka-guide/blob/master/articles/security-announcements.md)
-- [入门指南](https://github.com/guobinhit/akka-guide/blob/master/README.md)
+- [入门指南](https://doc.akka.io/docs/akka/current/guide/index.html)
   - [Akka 简介](https://github.com/guobinhit/akka-guide/blob/master/articles/getting-started-guide/introduction-to-akka.md) 
   - [为什么现代系统需要新的编程模型](https://github.com/guobinhit/akka-guide/blob/master/articles/getting-started-guide/actors-motivation.md) 
   - [Actor 模型如何满足现代分布式系统的需求](https://github.com/guobinhit/akka-guide/blob/master/articles/getting-started-guide/actor-intro.md)
@@ -27,7 +27,7 @@ Akka 是一个用 Scala 编写的库，用于在 JVM 平台上简化编写可容
   - [第 3 部分: 使用设备 Actors](https://github.com/guobinhit/akka-guide/blob/master/articles/getting-started-guide/akka-guide-part3.md)
   - [第 4 部分: 使用设备组](https://github.com/guobinhit/akka-guide/blob/master/articles/getting-started-guide/akka-guide-part4.md)
   - [第 5 部分: 查询设备组](https://github.com/guobinhit/akka-guide/blob/master/articles/getting-started-guide/akka-guide-part5.md)
-- [一般概念](https://github.com/guobinhit/akka-guide/blob/master/README.md)
+- [一般概念](https://doc.akka.io/docs/akka/current/general/index.html)
   - [术语及概念](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/terminology.md)
   - [Actor 系统](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/actor-systems.md)
   - [什么是 Actor？](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/actors.md)
@@ -37,7 +37,7 @@ Akka 是一个用 Scala 编写的库，用于在 JVM 平台上简化编写可容
   - [Akka 和 Java 内存模型](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/jmm.md)
   - [消息传递可靠性](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/message-delivery-reliability.md)
   - [配置](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/configuration.md)
-- [Actors](https://github.com/guobinhit/akka-guide/blob/master/README.md)
+- [Actors](https://doc.akka.io/docs/akka/current/index-actors.html)
   - [Actors](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/actors.md)（详述了 Akka 中常见的 API 操作，**强烈推荐阅读**）
   - [容错](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/fault-tolerance.md)
   - [调度器](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/dispatchers.md)
@@ -58,18 +58,18 @@ Akka 是一个用 Scala 编写的库，用于在 JVM 平台上简化编写可容
   - [共存](https://github.com/guobinhit/akka-guide/blob/master/articles/typed/coexisting.md)
   - [Actor 生命周期](https://github.com/guobinhit/akka-guide/blob/master/articles/typed/actor-lifecycle.md)
   - [交互模式](https://doc.akka.io/docs/akka/current/typed/interaction-patterns.html)
-  - [容错](https://doc.akka.io/docs/akka/current/typed/fault-tolerance.html)
+  - [容错](https://github.com/guobinhit/akka-guide/blob/master/articles/typed/fault-tolerance.md)
   - [Actor Discovery](https://github.com/guobinhit/akka-guide/blob/master/articles/typed/actor-discovery.md)
   - [路由](https://github.com/guobinhit/akka-guide/blob/master/articles/typed/routers.md)
-  - [Stash](https://doc.akka.io/docs/akka/current/typed/stash.html)
-  - [流](https://doc.akka.io/docs/akka/current/typed/stream.html)
+  - [Stash](https://github.com/guobinhit/akka-guide/blob/master/articles/typed/stash.md)
+  - [流](https://github.com/guobinhit/akka-guide/blob/master/articles/typed/stream.md)
   - [分布式数据](https://doc.akka.io/docs/akka/current/typed/distributed-data.html)
   - [集群单例](https://doc.akka.io/docs/akka/current/typed/cluster-singleton.html)
   - [集群分片](https://doc.akka.io/docs/akka/current/typed/cluster-sharding.html)
   - [持久性](https://doc.akka.io/docs/akka/current/typed/persistence.html)
   - [作为 FSM 的行为](https://github.com/guobinhit/akka-guide/blob/master/articles/typed/fsm.md)
   - [测试](https://doc.akka.io/docs/akka/current/typed/testing.html)
-- [集群](https://github.com/guobinhit/akka-guide/blob/master/README.md)
+- [集群](https://doc.akka.io/docs/akka/current/index-cluster.html)
   - [集群规范](https://github.com/guobinhit/akka-guide/blob/master/articles/clustering/cluster-specification.md) 
   - [集群的使用方法](https://github.com/guobinhit/akka-guide/blob/master/articles/clustering/cluster-usage.md) 
   - [集群感知路由器](https://github.com/guobinhit/akka-guide/blob/master/articles/clustering/cluster-routing.md) 
@@ -109,9 +109,21 @@ Akka 是一个用 Scala 编写的库，用于在 JVM 平台上简化编写可容
   - [Lightbend 赞助的相关项目](https://doc.akka.io/docs/akka/current/common/other-modules.html) 
     - [Play 框架](https://www.playframework.com) 
     - [Lagom](https://www.lagomframework.com) 
-- [HowTo: Common Patterns](https://doc.akka.io/docs/akka/current/general/index.html)
+- [如何：常见模式](https://github.com/guobinhit/akka-guide/blob/master/articles/howto.md)
 - [项目信息](https://doc.akka.io/docs/akka/current/project/index.html)
+  - [迁移指南](https://doc.akka.io/docs/akka/current/project/migration-guides.html) 
+  - [滚动升级](https://doc.akka.io/docs/akka/current/project/rolling-update.html)
+  - [问题追踪](https://doc.akka.io/docs/akka/current/project/issue-tracking.html)
+  - [证书](https://doc.akka.io/docs/akka/current/project/licenses.html)
+  - [项目](https://doc.akka.io/docs/akka/current/project/links.html)
 - [附加信息](https://doc.akka.io/docs/akka/current/additional/index.html)
+  - [二进制兼容规则](https://doc.akka.io/docs/akka/current/common/binary-compatibility-rules.html)
+  - [模块标记为“可能改变”](https://doc.akka.io/docs/akka/current/common/may-change.html)
+  - [如何部署 Akka?](https://doc.akka.io/docs/akka/current/additional/deploy.html)
+  - [常见问题](https://doc.akka.io/docs/akka/current/additional/faq.html)
+  - [IDE 提示](https://doc.akka.io/docs/akka/current/additional/ide.html)
+  - [书籍和视频](https://doc.akka.io/docs/akka/current/additional/books.html)
+  - [OSGi 中的 Akka](https://doc.akka.io/docs/akka/current/additional/osgi.html)
 
 
 

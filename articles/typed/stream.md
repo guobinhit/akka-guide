@@ -1,141 +1,199 @@
-# 作为 FSM」的行为
+# 流
+## 依赖
 
-对于非类型化的 Actor，有明确的支持来构建「[有限状态机](https://doc.akka.io/docs/akka/current/fsm.html)」。在 Akka 类型中不需要支持，因为用行为表示 FSM 很简单。
+为了使用 Akka 流类型，你需要将以下依赖添加到你的项目中：
 
-为了了解如何使用 Akka 类型的 API 来建模 FSM，下面是从「[非类型化的 Actor FSM 文档](https://doc.akka.io/docs/akka/current/fsm.html)」移植的`Buncher`示例。它演示了如何：
+```xml
+<!-- Maven -->
+<dependency>
+  <groupId>com.typesafe.akka</groupId>
+  <artifactId>akka-stream-typed_2.12</artifactId>
+  <version>2.5.23</version>
+</dependency>
 
-- 使用不同行为模拟状态
-- 通过将行为表示为一种方法，在每个状态下存储数据的模型
-- 实现状态超时
-
-FSM 可以接收的事件为 Actor 可以接收的消息类型：
-
-```java
-interface Event {}
-static final class SetTarget implements Event {
-  private final ActorRef<Batch> ref;
-
-  public SetTarget(ActorRef<Batch> ref) {
-    this.ref = ref;
-  }
-
-  public ActorRef<Batch> getRef() {
-    return ref;
-  }
+<!-- Gradle -->
+dependencies {
+  compile group: 'com.typesafe.akka', name: 'akka-stream-typed_2.12', version: '2.5.23'
 }
-final class Timeout implements Event {}
 
-static final Timeout TIMEOUT = new Timeout();
-public enum Flush implements Event {
-  FLUSH
-}
-static final class Queue implements Event {
-  private final Object obj;
-
-  public Queue(Object obj) {
-    this.obj = obj;
-  }
-
-  public Object getObj() {
-    return obj;
-  }
-}
+<!-- sbt -->
+libraryDependencies += "com.typesafe.akka" %% "akka-stream-typed" % "2.5.23"
 ```
 
-启动它需要`SetTarget`，为要传递的`Batches`设置目标；`Queue`将添加到内部队列，而`Flush`将标记突发的结束。
+## 简介
 
-非类型化 FSM 也有一个`D`（数据）类型参数。Akka 类型化不需要知道这一点，它可以通过将你的行为定义为方法来存储。
+「[Akka Streams](https://doc.akka.io/docs/akka/current/stream/index.html)」使对类型安全的消息处理管道建模变得容易。对于类型化的 Actors，可以在不丢失类型信息的情况下将流连接到 Actors。
 
-```java
-interface Data {}
-final class Todo implements Data {
-  private final ActorRef<Batch> target;
-  private final List<Object> queue;
+此模块包含现有`ActorRef`源的类型化替换，以及「[ActorMaterializerFactory](https://doc.akka.io/japi/akka/2.5/?akka/stream/typed/javadsl/ActorMaterializerFactory.html)」的工厂方法，后者采用类型化`ActorSystem`。
 
-  public Todo(ActorRef<Batch> target, List<Object> queue) {
-    this.target = target;
-    this.queue = queue;
-  }
+从这些工厂方法和源可以与来自原始模块的原始 Akka 流构建块混合和匹配。
 
-  public ActorRef<Batch> getTarget() {
-    return target;
-  }
+- **注释**：此模块已准备好用于生产，但仍标记为「[可能更改](https://doc.akka.io/docs/akka/current/common/may-change.html)」。这意味着 API 或语义可以在没有警告的情况下进行更改，但这些更改将在 Akka 2.6.0 中收集并执行，而不是在 2.5.x 补丁版本中执行。
 
-  public List<Object> getQueue() {
-    return queue;
-  }
+## Actor Source
 
-  @Override
-  public String toString() {
-    return "Todo{" + "target=" + target + ", queue=" + queue + '}';
-  }
-
-  public Todo addElement(Object element) {
-    List<Object> nQueue = new LinkedList<>(queue);
-    nQueue.add(element);
-    return new Todo(this.target, nQueue);
-  }
-
-  public Todo copy(List<Object> queue) {
-    return new Todo(this.target, queue);
-  }
-
-  public Todo copy(ActorRef<Batch> target) {
-    return new Todo(target, this.queue);
-  }
-}
-```
-
-每个状态都会变成一种不同的行为。不需要显式`goto`，因为 Akka 类型已经要求你返回下一个行为。
+发送到特定 Actor 的消息驱动的流可以使用「[ActorSource.actorRef](https://doc.akka.io/japi/akka/2.5/?akka/stream/typed/javadsl/ActorSource.html#actorRef)」启动。此源具体化为类型化的`ActorRef`，它只接受与流类型相同的消息。
 
 ```java
-// FSM states represented as behaviors
-private static Behavior<Event> uninitialized() {
-  return Behaviors.receive(Event.class)
-      .onMessage(
-          SetTarget.class,
-          (context, message) -> idle(new Todo(message.getRef(), Collections.emptyList())))
-      .build();
+import akka.actor.typed.ActorRef;
+import akka.japi.JavaPartialFunction;
+import akka.stream.ActorMaterializer;
+import akka.stream.OverflowStrategy;
+import akka.stream.javadsl.Sink;
+import akka.stream.javadsl.Source;
+import akka.stream.typed.javadsl.ActorSource;
+
+interface Protocol {}
+
+class Message implements Protocol {
+  private final String msg;
+
+  public Message(String msg) {
+    this.msg = msg;
+  }
 }
 
-private static Behavior<Event> idle(Todo data) {
-  return Behaviors.receive(Event.class)
-      .onMessage(Queue.class, (context, message) -> active(data.addElement(message)))
-      .build();
+class Complete implements Protocol {}
+
+class Fail implements Protocol {
+  private final Exception ex;
+
+  public Fail(Exception ex) {
+    this.ex = ex;
+  }
 }
 
-private static Behavior<Event> active(Todo data) {
-  return Behaviors.withTimers(
-      timers -> {
-        // State timeouts done with withTimers
-        timers.startSingleTimer("Timeout", TIMEOUT, Duration.ofSeconds(1));
-        return Behaviors.receive(Event.class)
-            .onMessage(Queue.class, (context, message) -> active(data.addElement(message)))
-            .onMessage(
-                Flush.class,
-                (context, message) -> {
-                  data.getTarget().tell(new Batch(data.queue));
-                  return idle(data.copy(new ArrayList<>()));
-                })
-            .onMessage(
-                Timeout.class,
-                (context, message) -> {
-                  data.getTarget().tell(new Batch(data.queue));
-                  return idle(data.copy(new ArrayList<>()));
-                })
-            .build();
-      });
-}
+  final JavaPartialFunction<Protocol, Throwable> failureMatcher =
+      new JavaPartialFunction<Protocol, Throwable>() {
+        public Throwable apply(Protocol p, boolean isCheck) {
+          if (p instanceof Fail) {
+            return ((Fail) p).ex;
+          } else {
+            throw noMatch();
+          }
+        }
+      };
+
+  final Source<Protocol, ActorRef<Protocol>> source =
+      ActorSource.actorRef(
+          (m) -> m instanceof Complete, failureMatcher, 8, OverflowStrategy.fail());
+
+  final ActorRef<Protocol> ref =
+      source
+          .collect(
+              new JavaPartialFunction<Protocol, String>() {
+                public String apply(Protocol p, boolean isCheck) {
+                  if (p instanceof Message) {
+                    return ((Message) p).msg;
+                  } else {
+                    throw noMatch();
+                  }
+                }
+              })
+          .to(Sink.foreach(System.out::println))
+          .run(mat);
+
+  ref.tell(new Message("msg1"));
+  // ref.tell("msg2"); Does not compile
 ```
 
-要设置状态超时，请使用`Behaviors.withTimers`和`startSingleTimer`。
+## Actor Sink
 
-以前在`onTransition`块中所做的任何副作用（`side effects`）都直接进入行为。
+有两个`sink`可接受类型化的`ActorRef`。要将流中的所有消息发送给 Actor 而不考虑反压力（`backpressure`），请使用「[ActorSink.actorRef](https://doc.akka.io/japi/akka/2.5/?akka/stream/typed/javadsl/ActorSink.html#actorRef)」。
+
+
+```java
+import akka.NotUsed;
+import akka.actor.typed.ActorRef;
+import akka.stream.ActorMaterializer;
+import akka.stream.javadsl.Sink;
+import akka.stream.javadsl.Source;
+import akka.stream.typed.javadsl.ActorSink;
+
+interface Protocol {}
+
+class Message implements Protocol {
+  private final String msg;
+
+  public Message(String msg) {
+    this.msg = msg;
+  }
+}
+
+class Complete implements Protocol {}
+
+class Fail implements Protocol {
+  private final Throwable ex;
+
+  public Fail(Throwable ex) {
+    this.ex = ex;
+  }
+}
+
+  final ActorRef<Protocol> actor = null;
+
+  final Sink<Protocol, NotUsed> sink = ActorSink.actorRef(actor, new Complete(), Fail::new);
+
+  Source.<Protocol>single(new Message("msg1")).runWith(sink, mat);
+```
+
+为了使 Actor 能够对反压力作出反应，需要在 Actor 和流之间引入一个协议。使用「[ActorSink.actorRefWithAck](https://doc.akka.io/japi/akka/2.5/?akka/stream/typed/javadsl/ActorSink.html#actorRefWithAck)」可以在 Actor 准备接收更多元素时发出需求信号。
+
+```java
+import akka.NotUsed;
+import akka.actor.typed.ActorRef;
+import akka.stream.ActorMaterializer;
+import akka.stream.javadsl.Sink;
+import akka.stream.javadsl.Source;
+import akka.stream.typed.javadsl.ActorSink;
+
+class Ack {}
+
+interface Protocol {}
+
+class Init implements Protocol {
+  private final ActorRef<Ack> ack;
+
+  public Init(ActorRef<Ack> ack) {
+    this.ack = ack;
+  }
+}
+
+class Message implements Protocol {
+  private final ActorRef<Ack> ackTo;
+  private final String msg;
+
+  public Message(ActorRef<Ack> ackTo, String msg) {
+    this.ackTo = ackTo;
+    this.msg = msg;
+  }
+}
+
+class Complete implements Protocol {}
+
+class Fail implements Protocol {
+  private final Throwable ex;
+
+  public Fail(Throwable ex) {
+    this.ex = ex;
+  }
+}
+
+  final ActorRef<Protocol> actor = null;
+
+  final Sink<String, NotUsed> sink =
+      ActorSink.actorRefWithAck(
+          actor, Message::new, Init::new, new Ack(), new Complete(), Fail::new);
+
+  Source.single("msg1").runWith(sink, mat);
+```
+
+
 
 
 ----------
 
-**英文原文链接**：[Behaviors as Finite state machines](https://doc.akka.io/docs/akka/current/typed/fsm.html).
+**英文原文链接**：[Streams](https://doc.akka.io/docs/akka/current/typed/stream.html).
 
 
 

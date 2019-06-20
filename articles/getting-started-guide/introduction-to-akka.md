@@ -18,9 +18,9 @@ Akka 对 Actor 模型的使用提供了一个抽象级别，使得编写正确�
 
 本入门指南提供了更高级别的信息，它涵盖了为什么 Actor 模型适合现代分布式系统的需要，并且包括一个有助于进一步了解 Akka 的教程。这些主题包括：
 
-- [为什么现代系统需要新的编程模型](https://github.com/guobinhit/akka-guide/blob/master/articles/actors-motivation.md)
-- [Actor 模型如何满足现代分布式系统的需求](https://github.com/guobinhit/akka-guide/blob/master/articles/actor-intro.md)
-- [Akka 库和模块概述](https://github.com/guobinhit/akka-guide/blob/master/articles/modules.md)
+- [为什么现代系统需要新的编程模型](https://github.com/guobinhit/akka-guide/blob/master/articles/getting-started-guide/actors-motivation.md)
+- [Actor 模型如何满足现代分布式系统的需求](https://github.com/guobinhit/akka-guide/blob/master/articles/getting-started-guide/actor-intro.md)
+- [Akka 库和模块概述](https://github.com/guobinhit/akka-guide/blob/master/articles/getting-started-guide/modules.md)
 - 一个基于 Hello World 示例的「[更复杂的例子](https://doc.akka.io/docs/akka/current/guide/tutorial.html)」以说明常见的 Akka 模式。
 
 

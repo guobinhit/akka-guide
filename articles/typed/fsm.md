@@ -1,4 +1,4 @@
-# 作为 FSM」的行为
+# 作为 FSM 的行为
 
 对于非类型化的 Actor，有明确的支持来构建「[有限状态机](https://doc.akka.io/docs/akka/current/fsm.html)」。在 Akka 类型中不需要支持，因为用行为表示 FSM 很简单。
 
