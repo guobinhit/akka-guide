@@ -728,7 +728,7 @@ public void testCollectTemperaturesFromAllActiveDevices() {
 
 - [Actor 的层级结构及其生命周期](https://github.com/guobinhit/akka-guide/blob/master/articles/getting-started-guide/tutorial_1.md)
 - [灵活性设计消息的重要性](https://github.com/guobinhit/akka-guide/blob/master/articles/getting-started-guide/tutorial_3.md)
-- [如有必要，如何监视和停止 Actor](https://github.com/guobinhit/akka-guide/blob/master/articles/getting-started-guide/tutorial_4.md)
+- [如何监视和停止 Actor](https://github.com/guobinhit/akka-guide/blob/master/articles/getting-started-guide/tutorial_4.md)
 
 ## 下一步是什么？
 要继续你的 Akka 之旅，我们建议：
