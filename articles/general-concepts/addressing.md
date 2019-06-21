@@ -1,5 +1,5 @@
 # Actor 引用、路径和地址
-本章描述如何在可能的分布式 Actor 系统中标识和定位 Actor。它与这样一个核心理念紧密相连：「[Actor Systems](https://github.com/guobinhit/akka-guide/blob/master/articles/actor-systems.md)」形成了内在的监督层次结构，并且 Actor 之间的通信在跨多个网络节点的位置方面是透明的。
+本章描述如何在可能的分布式 Actor 系统中标识和定位 Actor。它与这样一个核心理念紧密相连：「[Actor 系统](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/actor-systems.md)」形成了内在的监督层次结构，并且 Actor 之间的通信在跨多个网络节点的位置方面是透明的。
 
 ![actor-system](https://github.com/guobinhit/akka-guide/blob/master/images/addressing/actor-system.png)
 
@@ -29,9 +29,9 @@ Actor 引用是`ActorRef`的一个子类型，其首要目的是支持将消息�
 一个 Actor 路径由一个锚点组成，该锚点标识 Actor 系统，然后连接从根守护者到指定的 Actor 的路径元素；路径元素是被遍历的 Actor 的名称，由斜线分隔。
 
 ### Actor 的引用和路径有什么区别？
-Actor 引用指定一个单独的 Actor，引用的生命周期与该 Actor 的生命周期匹配；Actor 路径表示一个可能由 Actor 位置（`inhabited`）或不由 Actor 位置标识的名称，并且路径本身没有生命周期，它永远不会变为无效。你可以在不创建 Actor 的情况下创建 Actor 路径，但在不创建相应的 Actor 的情况下无法创建 Actor 引用。
+Actor 引用指定一个单独的 Actor，引用的生命周期与该 Actor 的生命周期匹配；Actor 路径表示一个可能由 Actor 位置或不由 Actor 位置标识的名称，并且路径本身没有生命周期，它永远不会变为无效。你可以在不创建 Actor 的情况下创建 Actor 路径，但在不创建相应的 Actor 的情况下无法创建 Actor 引用。
 
-你可以创建一个 Actor，终止它，然后使用相同的 Actor 路径创建一个新的 Actor。新创建的 Actor 是原 Actor 的化身。他们不是同一个 Actor。Actor 引用旧的化身（`incarnation`）对新的化身无效。发送到旧 Actor 引用的消息将不会传递到新的化身，即使它们具有相同的路径。
+你可以创建一个 Actor，终止它，然后使用相同的 Actor 路径创建一个新的 Actor。新创建的 Actor 是原 Actor 的化身。他们不是同一个 Actor。Actor 引用旧的化身对新的化身无效。发送到旧 Actor 引用的消息将不会传递到新的化身，即使它们具有相同的路径。
 
 ### Actor 路径锚点
 每个 Actor 路径都有一个地址组件，描述了协议和位置，通过这些协议和位置可以访问相应的 Actor，路径中的元素是从根目录向上的层次结构中 Actor 的名称。例如：
@@ -95,7 +95,7 @@ context.actorSelection("../*") ! msg
 
 - **注释**：以上部分的详细描述可以总结和记忆如下：
   - `actorOf`只创建了一个新的 Actor，它将其创建为调用此方法的上下文（可能是任何 Actor 或 Actor 系统）的直接子级。
-  - `actorSelection`仅在传递消息时查找现有的 Actor，即不创建 Actor，或在创建选择（`selection`）时验证 Actor 的存在。
+  - `actorSelection`仅在传递消息时查找现有的 Actor，即不创建 Actor，或在创建选择时验证 Actor 的存在。
 
 ## Actor 引用和路径相等
 `ActorRef`的相等符合`ActorRef`对应于目标 Actor 化身的意图。当两个 Actor 引用具有相同的路径并指向相同的 Actor 化身时，它们将被比较为相等的。指向终止的 Actor 的引用与指向具有相同路径的其他（重新创建的）Actor 的引用不同。请注意，由失败引起的 Actor 重新启动仍然意味着它是同一个 Actor 的化身，即对于`ActorRef`的使用者来说，重新启动是不可见的。
@@ -125,7 +125,7 @@ context.actorSelection("../*") ! msg
 - `"/system"`是所有系统创建的 Actor 的顶级守护者 Actor，例如在 Actor 系统开始时通过配置自动部署日志监听器。
 - `"/deadletters"`是死信 Actor，即所有发送到已停止或不存在的 Actor 的消息都会重新路由（在尽最大努力的基础上：消息也可能会丢失，即使是在本地 JVM 中）。
 - `"/temp"`是所有短期系统创建的 Actor 的守护者 Actor，例如在`ActorRef.ask`的实现中使用的 Actor。
-- `"/remote"`是一个人工路径，其下面所有 Actor 的主管都是远程 Actor 引用。
+- `"/remote"`是一个人工路径，其下面所有 Actor 的监督者都是远程 Actor 引用。
 
 像这样为 Actor 构建名称空间的需要源于一个中心且非常简单的设计目标：层次结构中的所有内容都是一个 Actor，并且所有 Actor 都以相同的方式工作。因此，你不仅可以查找你创建的 Actor，还可以查找系统守护者并向其发送消息（在本例中，它将尽职尽责地丢弃该消息）。这一强有力的原则意味着不需要记住任何怪癖，它使整个系统更加统一和一致。
 
