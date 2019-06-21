@@ -1,3 +1,11 @@
-target
-.iml
+/target/
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+*.jar
+*.class
+
 .DS_Store
