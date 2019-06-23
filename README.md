@@ -125,13 +125,13 @@ Akka 是一个用 Scala 编写的库，用于在 JVM 平台上简化编写具有
   - [许可证](https://github.com/guobinhit/akka-guide/blob/master/articles/project/licenses.md)
   - [项目](https://github.com/guobinhit/akka-guide/blob/master/articles/project/links.md)
 - [附加信息](https://doc.akka.io/docs/akka/current/additional/index.html)
-  - [二进制兼容规则](https://doc.akka.io/docs/akka/current/common/binary-compatibility-rules.html)
-  - [模块标记为“可能改变”](https://doc.akka.io/docs/akka/current/common/may-change.html)
-  - [如何部署 Akka?](https://doc.akka.io/docs/akka/current/additional/deploy.html)
-  - [常见问题](https://doc.akka.io/docs/akka/current/additional/faq.html)
-  - [IDE 提示](https://doc.akka.io/docs/akka/current/additional/ide.html)
-  - [书籍和视频](https://doc.akka.io/docs/akka/current/additional/books.html)
-  - [OSGi 中的 Akka](https://doc.akka.io/docs/akka/current/additional/osgi.html)
+  - [二进制兼容规则](https://github.com/guobinhit/akka-guide/blob/master/articles/additional/binary-compatibility-rules.md)
+  - [模块标记为“可能改变”](https://github.com/guobinhit/akka-guide/blob/master/articles/additional/may-change.md)
+  - [如何部署 Akka?](https://github.com/guobinhit/akka-guide/blob/master/articles/additional/deploy.md)
+  - [常见问题](https://github.com/guobinhit/akka-guide/blob/master/articles/additional/faq.md)
+  - [IDE 提示](https://github.com/guobinhit/akka-guide/blob/master/articles/additional/ide.md)
+  - [书籍和视频](https://github.com/guobinhit/akka-guide/blob/master/articles/additional/books.md)
+  - [OSGi 中的 Akka](https://github.com/guobinhit/akka-guide/blob/master/articles/additional/osgi.md)
 
 
 
