@@ -22,13 +22,13 @@ libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.21"
 
 ## 简介
 
-「[Actor Model](https://en.wikipedia.org/wiki/Actor_model)」为编写并发和分布式系统提供了更高级别的抽象。它减少了开发人员必须处理显式锁和线程管理的问题，使编写正确的并发和并行系统变得更容易。1973 年卡尔·休伊特（`Carl Hewitt`）在论文中定义了 Actors，然后通过  Erlang 语言所普及，并且在爱立信（`Ericsson`）成功地建立了高度并发和可靠的电信系统。
+「[Actor 模型](https://en.wikipedia.org/wiki/Actor_model)」为编写并发和分布式系统提供了更高级别的抽象。它减少了开发人员必须处理显式锁和线程管理的问题，使编写正确的并发和并行系统变得更容易。1973 年卡尔·休伊特（`Carl Hewitt`）在论文中定义了 Actors，然后通过  Erlang 语言所普及，并且在爱立信（`Ericsson`）成功地建立了高度并发和可靠的电信系统。
 
 Akka 的 Actors API 类似于 Scala Actors，它从 Erlang 中借用了一些语法。
 
 ## 创建 Actors
 
-由于 Akka 实施父级（`parental`）监督，每个 Actor 都受到其父级的监督并且监督其子级，因此建议你熟悉「[Actor Systems](https://doc.akka.io/docs/akka/current/general/actor-systems.html)」和「[Supervision](https://doc.akka.io/docs/akka/current/general/supervision.htm)」，它还可能有助于阅读「[Actor References, Paths and Addresses](https://doc.akka.io/docs/akka/current/general/addressing.html)」。
+由于 Akka 实施父级监督，每个 Actor 都受到其父级的监督并且监督其子级，因此建议你熟悉「[Actor 系统](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/actor-systems.md)」和「[监督](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/supervision.md)」，它还可能有助于阅读「[Actor 引用、路径和地址](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/addressing.md)」。
 
 
 ### 定义 Actor 类
@@ -65,7 +65,7 @@ public class MyActor extends AbstractActor {
 
 请进一步注意，上面定义的行为的返回类型是`Unit`；如果 Actor 应回复收到的消息，则必须按照下面的说明显式完成。
 
-`createReceive`方法的结果是`AbstractActor.Receive`，它是围绕部分 Scala 函数对象的包装。它作为其“初始行为”存储在 Actor 中，有关在 Actor 构造后更改其行为的详细信息，请参见「[Become/Unbecome](https://doc.akka.io/docs/akka/current/actors.html#become-unbecome)」。
+`createReceive`方法的结果是`AbstractActor.Receive`，它是围绕部分 Scala 函数对象的包装。它作为其“初始行为”存储在 Actor 中，有关在 Actor 构造后更改其行为的详细信息，请参见「[Become/Unbecome](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/actors.md#becomeunbecome)」。
 
 ### Props
 
@@ -93,7 +93,7 @@ Props props7 = Props.create(ActorWithArgs.class, () -> new ActorWithArgs("arg"))
 
 不建议在另一个 Actor 中使用此方法，因为它鼓励关闭封闭范围，从而导致不可序列化的属性和可能的竞态条件（破坏 Actor 封装）。另一方面，在 Actor 的同伴对象（`companion object`）中的`Props`工厂中使用这个变体是完全正确的，如下面的“推荐实践”中所述。
 
-这些方法有两个用例：将构造函数参数传递给由新引入的`Props.create(clazz, args)`方法或下面的推荐实践解决的 Actor，并将 Actor “就地（`on the spot`）”创建为匿名类。后者应该通过将这些 Actor 命名为类来解决（如果它们没有在顶级`object`中声明，则需要将封闭实例的`this`引用作为第一个参数传递）。
+这些方法有两个用例：将构造函数参数传递给由新引入的`Props.create(clazz, args)`方法或下面的推荐实践解决的 Actor，并将 Actor “就地”创建为匿名类。后者应该通过将这些 Actor 命名为类来解决，如果它们没有在顶级`object`中声明，则需要将封闭实例的`this`引用作为第一个参数传递。
 
 - **警告**：在另一个 Actor 中声明一个 Actor 是非常危险的，并且会破坏 Actor 的封装。千万不要把 Actor 的`this`引用传给`Props`！
 
@@ -193,7 +193,7 @@ static class FirstActor extends AbstractActor {
 }
 ```
 
-建议创建一个子级、孙子（`grand-children`）级这样的层次结构，以便它适合应用程序的逻辑故障处理结构，详见「[Actor Systems](https://doc.akka.io/docs/akka/current/general/actor-systems.html)」。
+建议创建一个子级、子子级这样的层次结构，以便它适合应用程序的逻辑故障处理结构，详见「[Actor 系统](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/actor-systems.md)」。
 
 对`actorOf`的调用返回`ActorRef`的实例。这是 Actor 实例的句柄，也是与之交互的唯一方法。`ActorRef`是不可变的，并且与它所表示的 Actor 有一对一的关系。`ActorRef`也是可序列化的，并且具有网络意识（`network-aware`）。这意味着你可以序列化它，通过网络发送它，并在远程主机上使用它，并且它仍然在网络上表示原始节点上的同一个 Actor。
 
@@ -203,7 +203,7 @@ Actor 在创建时自动异步启动。
 
 ### 依赖注入
 
-如果你的 Actor 有一个接受参数的构造函数，那么这些参数也需要成为`Props`的一部分，如上所述。但在某些情况下，必须使用工厂方法，例如，当依赖项注入（`dependency injection`）框架确定实际的构造函数参数时。
+如果你的 Actor 有一个接受参数的构造函数，那么这些参数也需要成为`Props`的一部分，如上所述。但在某些情况下，必须使用工厂方法，例如，当依赖注入框架确定实际的构造函数参数时。
 
 ```java
 import akka.actor.Actor;
@@ -236,7 +236,7 @@ class DependencyInjector implements IndirectActorProducer {
               Props.create(DependencyInjector.class, applicationContext, "TheActor"), "TheActor");
 ```
 
-- **警告**：有时，你可能会试图提供始终返回同一实例的`IndirectActorProducer`，例如使用静态字段。这是不支持的，因为它违背了 Actor 重新启动的含义，这里描述了：「[重新启动意味着什么](https://doc.akka.io/docs/akka/current/general/supervision.html#supervision-restart)」。
+- **警告**：有时，你可能会试图提供始终返回同一实例的`IndirectActorProducer`，例如使用静态字段。这是不支持的，因为它违背了 Actor 重新启动的含义，在这里「[重启意味着什么？](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/supervision.md#%E9%87%8D%E5%90%AF%E6%84%8F%E5%91%B3%E7%9D%80%E4%BB%80%E4%B9%88)」进行了描述。
 
 当使用依赖注入框架时，Actor `bean`不能有`singleton`作用域。
 
@@ -256,7 +256,7 @@ try {
 }
 ```
 
-`send`方法包装了一个普通的`tell`，并将内部 Actor 的引用作为发送者提供。这允许在最后一行接收回复。监视（`Watching`）Actor 也很简单：
+`send`方法包装了一个普通的`tell`，并将内部 Actor 的引用作为发送者提供。这允许在最后一行接收回复。监视 Actor 也很简单：
 
 ```java
 final Inbox inbox = Inbox.create(system);
@@ -289,7 +289,7 @@ try {
   - 父级监督者
   - 受监督的子级
   - 生命周期监控
-  - 如`Become/Unbecome`中所述的热交换行为栈（`hotswap behavior stack`）
+  - 如`Become/Unbecome`中所述的热交换行为栈
  
 其余可见的方法是用户可重写的生命周期钩子方法，如下所述：
 
@@ -326,19 +326,19 @@ Actor 系统中的一条路径表示一个“地方”，可能被一个活着�
 
 如下所述。
 
-重新启动（`restart`）只交换由`Props`定义的`Actor`实例，因此`UID`保持不变。只要化身是相同的，你可以继续使用相同的`ActorRef`。重启是通过 Actor 的父 Actor 的「[Supervision Strategy](https://doc.akka.io/docs/akka/current/fault-tolerance.html#creating-a-supervisor-strategy)」来处理的，关于重启的含义还有「[更多的讨论](https://doc.akka.io/docs/akka/current/general/supervision.html#supervision-restart)」。
+重新启动只交换由`Props`定义的`Actor`实例，因此`UID`保持不变。只要化身是相同的，你可以继续使用相同的`ActorRef`。重启是通过 Actor 的父 Actor 的「[监督策略](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/fault-tolerance.md#%E5%88%9B%E5%BB%BA%E7%9B%91%E7%9D%A3%E7%AD%96%E7%95%A5)」来处理的，关于重启的含义还有「[更多的讨论](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/supervision.md#%E9%87%8D%E5%90%AF%E6%84%8F%E5%91%B3%E7%9D%80%E4%BB%80%E4%B9%88)」。
 
-当 Actor 停止时，化身的生命周期就结束了。此时将调用适当的生命周期事件，并将终止通知观察 Actor。当化身停止后，可以通过使用`actorOf()`创建 Actor 来再次使用路径。在这种情况下，新化身的名称将与前一个相同，但`UID`将不同。Actor 可以由 Actor 本身、另一个 Actor 或 Actor 系统停止，详见「[停止 Actor](https://doc.akka.io/docs/akka/current/actors.html#stopping-actors)」。
+当 Actor 停止时，化身的生命周期就结束了。此时将调用适当的生命周期事件，并将终止通知观察 Actor。当化身停止后，可以通过使用`actorOf()`创建 Actor 来再次使用路径。在这种情况下，新化身的名称将与前一个相同，但`UID`将不同。Actor 可以由 Actor 本身、另一个 Actor 或 Actor 系统停止，详见「[停止 Actor](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/actors.md#%E5%81%9C%E6%AD%A2-actor)」。
 
 - **注释**：重要的是要注意，Actor 不再被引用时不会自动停止，创建的每个 Actor 也必须显式销毁。唯一的简化是，停止父 Actor 也将递归地停止此父 Actor 创建的所有子 Actor。
 
 `ActorRef`总是代表一个化身（路径和`UID`），而不仅仅是一个给定的路径。因此，如果一个 Actor 被停止，一个同名的新 Actor 被创造出来，旧化身的 Actor 引用就不会指向新的 Actor。
 
-另一方面，`ActorSelection`指向路径（或者如果使用通配符，则指向多个路径），并且完全忽略了具体化当前正在占用的路径。由于这个原因，`ActorSelection`不能被观看。可以通过向`ActorSelection`发送`Identify`消息来获取（`resolve`）当前化身的`ActorRef`，该消息将以包含正确引用的`ActorIdentity`回复，详见[ActorSelection](https://doc.akka.io/docs/akka/current/actors.html#actorselection)」。这也可以通过`ActorSelection`的`resolveOne`方法来实现，该方法返回匹配`ActorRef`的`Future`。
+另一方面，`ActorSelection`指向路径（或者如果使用通配符，则指向多个路径），并且完全忽略了具体化当前正在占用的路径。由于这个原因，`ActorSelection`不能被监控。可以通过向`ActorSelection`发送`Identify`消息来获取当前化身的`ActorRef`，该消息将以包含正确引用的`ActorIdentity`回复，详见「[ActorSelection](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/actors.md#%E9%80%9A%E8%BF%87-actor-selection-%E8%AF%86%E5%88%AB-actor)」。这也可以通过`ActorSelection`的`resolveOne`方法来实现，该方法返回匹配`ActorRef`的`Future`。
 
 ### 生命周期监控，或称为 DeathWatch
 
-为了在另一个 Actor 终止时得到通知（即永久停止，而不是临时失败和重新启动），Actor 可以注册（`register`）自己，以便在终止时接收另一个 Actor 发送的`Terminated`消息，详见「[停止 Actor](https://doc.akka.io/docs/akka/current/actors.html#stopping-actors)」。此服务由 Actor 系统的`DeathWatch`组件提供。
+为了在另一个 Actor 终止时得到通知（即永久停止，而不是临时失败和重新启动），Actor 可以注册自己，以便在终止时接收另一个 Actor 发送的`Terminated`消息，详见「[停止 Actor](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/actors.md#%E5%81%9C%E6%AD%A2-actor)」。此服务由 Actor 系统的`DeathWatch`组件提供。
 
 注册监视器（`monitor`）很容易：
 
@@ -393,7 +393,7 @@ public void preStart() {
 
 ### Restart 钩子
 
-所有 Actor 都受到监督，即通过故障处理策略链接到另一个 Actor。如果在处理消息时引发异常，则可以重新启动 Actor（详见「[supervision](https://doc.akka.io/docs/akka/current/general/supervision.html)」）。重新启动涉及上述挂钩：
+所有 Actor 都受到监督，即通过故障处理策略链接到另一个 Actor。如果在处理消息时引发异常，则可以重新启动 Actor，详见「[监督](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/supervision.md)」。重新启动涉及上述挂钩：
 
 1. 通过调用导致`preRestart`的异常和触发该异常的消息来通知旧 Actor ；如果重新启动不是由处理消息引起的，则后者可能为`None`，例如，当监督者不捕获异常并由其监督者依次重新启动时，或者某个 Actor 由于其同级 Actor 的失败而导致重新启动时。如果消息可用，那么该消息的发送者也可以通过常规方式访问，即调用`sender`。此方法是清理、准备移交给新的 Actor 实例等的最佳位置。默认情况下，它会停止所有子级并调用`postStop`。
 2. 来自`actorOf`调用的初始工厂用于生成新实例。
@@ -401,7 +401,7 @@ public void preStart() {
 
 Actor 重新启动仅替换实际的 Actor 对象；邮箱的内容不受重新启动的影响，因此在`postRestart`钩子返回后，将继续处理消息，而且将不再接收触发异常的消息。重新启动时发送给 Actor 的任何消息都将像往常一样排队进入其邮箱。
 
-- **警告**：请注意，与用户消息相关的失败通知的顺序是不确定的。特别是，父级可以在处理子级在失败之前发送的最后一条消息之前重新启动其子级。有关详细信息，请参阅「[讨论：消息排序](https://doc.akka.io/docs/akka/current/general/message-delivery-reliability.html#message-ordering)」。
+- **警告**：请注意，与用户消息相关的失败通知的顺序是不确定的。特别是，父级可以在处理子级在失败之前发送的最后一条消息之前重新启动其子级。有关详细信息，请参阅「[讨论：消息排序](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/message-delivery-reliability.md#%E8%AE%A8%E8%AE%BA%E6%B6%88%E6%81%AF%E6%8E%92%E5%BA%8F)」。
 
 ### Stop 钩子
 
@@ -409,7 +409,7 @@ Actor 重新启动仅替换实际的 Actor 对象；邮箱的内容不受重新�
 
 ## 通过 Actor Selection 识别 Actor
 
-如「[Actor References, Paths and Addresses](https://doc.akka.io/docs/akka/current/general/addressing.html)」中所述，每个 Actor 都有唯一的逻辑路径，该路径通过从子级到父级的 Actor 链获得，直到到达 Actor 系统的根，并且它有一个物理路径，如果监督链（`supervision chain`）包含任何远程监管者，则该路径可能有所不同。系统使用这些路径来查找 Actor，例如，当接收到远程消息并搜索收件人时，它们很有用：Actor 可以通过指定逻辑或物理的绝对或相对路径来查找其他 Actor，并接收带有结果的`ActorSelection`：
+如「[Actor 引用、路径和地址](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/addressing.md)」中所述，每个 Actor 都有唯一的逻辑路径，该路径通过从子级到父级的 Actor 链获得，直到到达 Actor 系统的根，并且它有一个物理路径，如果监督链包含任何远程监督者，则该路径可能有所不同。系统使用这些路径来查找 Actor，例如，当接收到远程消息并搜索收件人时，它们很有用：Actor 可以通过指定逻辑或物理的绝对或相对路径来查找其他 Actor，并接收带有结果的`ActorSelection`：
 
 ```java
 // will look up this absolute path
@@ -419,14 +419,14 @@ getContext().actorSelection("../joe");
 ```
 
 - **注释**：与其他 Actor 交流时，最好使用他们的`ActorRef`，而不是依靠`ActorSelection`。但也有例外，如
-  - 使用「[至少一次传递](https://doc.akka.io/docs/akka/current/persistence.html#at-least-once-delivery)」能力发送消息
+  - 使用「[至少一次传递](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/persistence.md#%E8%87%B3%E5%B0%91%E4%B8%80%E6%AC%A1%E4%BC%A0%E9%80%92)」能力发送消息
   - 启动与远程系统的第一次连接
 
 在所有其他情况下，可以在 Actor 创建或初始化期间提供`ActorRef`，将其从父级传递到子级，或者通过将其`ActorRef`发送到其他 Actor 来引出 Actor。
 
-提供的路径被解析为` java.net.URI`，这意味着它在路径元素上被`/`拆分。如果路径以`/`开头，则为绝对路径，查找从根守护者（它是`/user`的父级）开始；否则，查找从当前 Actor 开始。如果路径元素等于`..`，则查找将向当前遍历的 Actor 的监督者“向上”一步，否则将向命名的子级“向下”一步。应该注意的是`..`在 Actor 路径中，总是指逻辑结构，即监督者。
+提供的路径被解析为`java.net.URI`，这意味着它在路径元素上被`/`拆分。如果路径以`/`开头，则为绝对路径，查找从根守护者（它是`/user`的父级）开始；否则，查找从当前 Actor 开始。如果路径元素等于`..`，则查找将向当前遍历的 Actor 的监督者“向上”一步，否则将向命名的子级“向下”一步。应该注意的是`..`在 Actor 路径中，总是指逻辑结构，即监督者。
 
-Actor 选择（`selection`）的路径元素可以包含允许向该部分广播（`broadcasting`）消息的通配符模式：
+Actor 选择（`selection`）的路径元素可以包含允许向该部分广播消息的通配符模式：
 
 ```java
 // will look all children to serviceB with names starting with worker
@@ -435,9 +435,9 @@ getContext().actorSelection("/user/serviceB/worker*");
 getContext().actorSelection("../*");
 ```
 
-消息可以通过`ActorSelection`发送，并且在传递每个消息时查找`ActorSelection`的路径。如果选择（`selection`）与任何 Actor 都不匹配，则消息将被删除。
+消息可以通过`ActorSelection`发送，并且在传递每个消息时查找`ActorSelection`的路径。如果选择与任何 Actor 都不匹配，则消息将被删除。
 
-要获取`ActorRef`以进行`ActorSelection`，你需要向选择发送消息，并使用来自 Actor 的答复的`getSender()`引用。有一个内置的`Identify`消息，所有 Actor 都将理解该消息，并使用包含`ActorRef`的`ActorIdentity`消息自动回复。此消息由 Actor 专门处理，如果具体的名称查找失败（即非通配符路径元素与存活的 Actor 不对应），则会生成负（`negative`）结果。请注意，这并不意味着保证回复的传递（`delivery of that reply is guaranteed`），它仍然是正常的消息。
+要获取`ActorRef`以进行`ActorSelection`，你需要向选择发送消息，并使用来自 Actor 的答复的`getSender()`引用。有一个内置的`Identify`消息，所有 Actor 都将理解该消息，并使用包含`ActorRef`的`ActorIdentity`消息自动回复。此消息由 Actor 专门处理，如果具体的名称查找失败（即非通配符路径元素与存活的 Actor 不对应），则会生成负结果。请注意，这并不意味着保证回复的传递，它仍然是正常的消息。
 
 ```java
 import akka.actor.ActorIdentity;
@@ -480,15 +480,15 @@ static class Follower extends AbstractActor {
 }
 ```
 
-你还可以使用`ActorSelection`的`resolveOne`方法获取`ActorRef`以进行actorselection。如果存在这样的 Actor，它将返回匹配的`ActorRef`的`Future`，可参阅「[ Java 8 Compatibility for Java compatibility](https://doc.akka.io/docs/akka/current/java8-compat.html)」。如果不存在这样的 Actor 或标识在提供的`timeout`内未完成，则完成此操作并抛出`akka.actor.ActorNotFound`异常。
+你还可以使用`ActorSelection`的`resolveOne`方法获取`ActorRef`以进行`ActorSelection`。如果存在这样的 Actor，它将返回匹配的`ActorRef`的`Future`，可参阅「[ Java 8 兼容性](https://github.com/guobinhit/akka-guide/blob/master/articles/index-utilities/java8-compat.md)」。如果不存在这样的 Actor 或标识在提供的`timeout`内未完成，则完成此操作并抛出`akka.actor.ActorNotFound`异常。
 
-如果启用「[remoting](https://doc.akka.io/docs/akka/current/remoting.html)」，也可以查找远程 Actor 的地址：
+如果启用「[远程处理](https://doc.akka.io/docs/akka/current/remoting.html)」，也可以查找远程 Actor 的地址：
 
 ```java
 getContext().actorSelection("akka.tcp://app@otherhost:1234/user/serviceB");
 ```
 
-「[Remoting Sample](https://doc.akka.io/docs/akka/current/remoting.html#remote-sample)」中给出了一个在启用远程处理（`remoting`）的情况下演示 Actor 查找的例子。
+「[远程处理样例](https://doc.akka.io/docs/akka/current/remoting.html#remote-sample)」中给出了一个在启用远程处理（`remoting`）的情况下演示 Actor 查找的例子。
 
 ## 信息和不变性
 
@@ -570,7 +570,7 @@ CompletableFuture<Result> transformed =
 pipe(transformed, system.dispatcher()).to(actorC);
 ```
 
-这个例子演示了`ask`和`pipeTo`模式在`Future`上的结合，因为这可能是一个常见的组合。请注意，以上所有内容都是完全非阻塞和异步的：`ask`生成一个，其中两个使用`CompletableFuture.allOf`和`thenApply`方法组合成新的`Future`，然后`pipe`在`CompletionStage`上安装一个处理程序，以将聚合`Result`提交给另一个 Actor。
+这个例子演示了`ask`和`pipeTo`模式在`Future`上的结合，因为这可能是一个常见的组合。请注意，以上所有内容都是完全非阻塞和异步的：`ask`生成一个，其中两个使用`CompletableFuture.allOf`和`thenApply`方法组合成新的`Future`，然后`pipe`在`CompletionStage`上安装一个处理程序，以将聚合的`Result`提交给另一个 Actor。
 
 使用`ask`会像使用`tell`一样向接收 Actor 发送消息，并且接收 Actor 必须使用`getSender().tell(reply, getSelf())`才能完成返回的值。`ask`操作涉及创建一个用于处理此回复的内部 Actor，该 Actor 需要有一个超时，在该超时之后才能将其销毁，以便不泄漏资源；具体请参阅下面更多的内容。
 
@@ -590,11 +590,11 @@ try {
 
 这可以用于注册回调以便在完成时获取通知，从而提供避免阻塞的方法。
 
-- **警告**：当使用`Future`的回调时，内部 Actor 需要小心避免关闭包含 Actor 的引用，即不要从回调中调用方法或访问封闭 Actor 的可变状态。这将破坏 Actor 的封装，并可能引入同步错误和竞态条件，因为回调将被同时调度到封闭 Actor。不幸的是，目前还没有一种方法可以在编译时检测到这些非法访问。另见「[Actors 和共享可变状态](https://doc.akka.io/docs/akka/current/general/jmm.html#jmm-shared-state)」。
+- **警告**：当使用`Future`的回调时，内部 Actor 需要小心避免关闭包含 Actor 的引用，即不要从回调中调用方法或访问封闭 Actor 的可变状态。这将破坏 Actor 的封装，并可能引入同步错误和竞态条件，因为回调将被同时调度到封闭 Actor。不幸的是，目前还没有一种方法可以在编译时检测到这些非法访问。另见「[Actors 和共享可变状态](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/jmm.md#actors-%E5%92%8C%E5%85%B1%E4%BA%AB%E5%8F%AF%E5%8F%98%E7%8A%B6%E6%80%81)」。
 
 ### 转发消息
 
-你可以将消息从一个 Actor 转发到另一个 Actor。这意味着即使消息通过“中介器（`mediator`）”，原始发送方地址/引用也会得到维护。这在编写充当路由器（`routers`）、负载平衡器（`load-balancers`）、复制器（`replicators`）等的 Actor 时很有用。
+你可以将消息从一个 Actor 转发到另一个 Actor。这意味着即使消息通过“中介器”，原始发送方地址/引用也会得到维护。这在编写充当路由器、负载平衡器、复制器等的 Actor 时很有用。
 
 ```java
 target.forward(result, getContext());
@@ -635,7 +635,7 @@ public class MyActor extends AbstractActor {
 }
 ```
 
-如果你希望提供许多`match`案例，但希望避免创建长调用跟踪（`a long call trail`），可以将生成器的创建拆分为多个语句，如示例中所示：
+如果你希望提供许多`match`案例，但希望避免创建长调用跟踪，可以将生成器的创建拆分为多个语句，如示例中所示：
 
 ```java
 import akka.actor.AbstractActor;
@@ -743,7 +743,7 @@ static class OptimizedActor extends UntypedAbstractActor {
 
 ## 回复消息
 
-如果你想有一个回复消息的句柄，可以使用`getSender()`，它会给你一个`ActorRef`。你可以通过使用`getSender().tell(replyMsg, getSelf())`发送`ActorRef`来进行回复。你还可以存储`ActorRef`以供稍后回复或传递给其他 Actor。如果没有发送者（发送的消息没有 Actor 或`Future`上下文），那么发送者默认为死信（`dead-letter`）Actor 引用。
+如果你想有一个回复消息的句柄，可以使用`getSender()`，它会给你一个`ActorRef`。你可以通过使用`getSender().tell(replyMsg, getSelf())`发送`ActorRef`来进行回复。你还可以存储`ActorRef`以供稍后回复或传递给其他 Actor。如果没有发送者（发送的消息没有 Actor 或`Future`上下文），那么发送者默认为死信 Actor 引用。
 
 ```java
 getSender().tell(s, getSelf());
@@ -751,9 +751,9 @@ getSender().tell(s, getSelf());
 
 ## 接收超时
 
-`ActorContext setReceiveTimeout`定义了非活动超时，在该超时之后，将触发发送`ReceiveTimeout`消息。指定超时时间后，接收函数应该能够处理`akka.actor.ReceiveTimeout`消息。`1`毫秒是支持的最小超时时间。
+`ActorContext`的`setReceiveTimeout`方法定义了非活动超时，在该超时之后，将触发发送`ReceiveTimeout`消息。指定超时时间后，接收函数应该能够处理`akka.actor.ReceiveTimeout`消息。`1`毫秒是支持的最小超时时间。
 
-请注意，接收超时（`receive timeout`）可能会在另一条消息排队后立即触发并排队`ReceiveTimeout`消息；因此，不保证在接收超时，如通过此方法配置的那样，事先必须有空闲时间。
+请注意，接收超时可能会在另一条消息排队后立即触发并排队`ReceiveTimeout`消息；因此，不保证接收超时，如通过此方法配置的那样，事先必须有空闲时间。
 
 设置后，接收超时将保持有效（即在非活动期后继续重复触发），可以通过传入`Duration.Undefined`消息来关闭此功能。
 
@@ -784,11 +784,10 @@ static class ReceiveTimeoutActor extends AbstractActor {
 }
 ```
 
-标记为`NotInfluenceReceiveTimeout`的消息将不会重置计时器。当`ReceiveTimeout`受外部不活动而不受内部活动（如定时勾选消息）影响时，这可能会很有用（`This can be useful when ReceiveTimeout should be fired by external inactivity but not influenced by internal activity, e.g. scheduled tick messages.
-`）。
+标记为`NotInfluenceReceiveTimeout`的消息将不会重置计时器。当`ReceiveTimeout`受外部不活动而不受内部活动（如定时勾选消息）影响时，这可能会很有用。
 
 ## 定时器和调度消息
-通过直接使用「[Scheduler](https://doc.akka.io/docs/akka/current/scheduler.html)」，可以将消息安排在以后的时间点发送，但是在将 Actor 中的定期或单个消息安排到自身时，使用对命名定时器（`named timers`）的支持更为方便和安全。当 Actor 重新启动并由定时器处理时，调度（`scheduled`）消息的生命周期可能难以管理。
+通过直接使用「[调度程序](https://github.com/guobinhit/akka-guide/blob/master/articles/index-utilities/scheduler.md)」，可以将消息安排在以后的时间点发送，但是在将 Actor 中的定期或单个消息安排到自身时，使用对命名定时器的支持更为方便和安全。当 Actor 重新启动并由定时器处理时，调度消息的生命周期可能难以管理。
 
 ```java
 import java.time.Duration;
@@ -825,7 +824,7 @@ static class MyActor extends AbstractActorWithTimers {
 }
 ```
 
-每个定时器都有一个键，可以更换或取消。它保证不会收到来自具有相同密钥的定时器的前一个实例的消息，即使当它被取消或新定时器启动时，它可能已经在邮箱中排队。
+每个定时器都有一个键，可以更换或取消。它保证不会收到来自具有相同键的定时器的前一个实例的消息，即使当它被取消或新定时器启动时，它可能已经在邮箱中排队。
 
 定时器绑定到拥有它的 Actor 的生命周期，因此当它重新启动或停止时自动取消。请注意，`TimerScheduler`不是线程安全的，即它只能在拥有它的 Actor 中使用。
 
@@ -873,7 +872,7 @@ public void postStop() {
 }
 ```
 
-- **注释**：由于停止 Actor 是异步的，因此不能立即重用刚刚停止的子级的名称；这将导致`InvalidActorNameException`。相反，`watch()`终止的 Actor，并创建其替换（`replacement`），以响应最终到达的`Terminated`消息。
+- **注释**：由于停止 Actor 是异步的，因此不能立即重用刚刚停止的子级的名称；这将导致`InvalidActorNameException`。相反，`watch()`终止的 Actor，并创建其替换，以响应最终到达的`Terminated`消息。
 
 ### PoisonPill
 
@@ -885,7 +884,7 @@ victim.tell(akka.actor.PoisonPill.getInstance(), ActorRef.noSender());
 
 ### 杀死一个 Actor
 
-你也可以通过发送一条`Kill`消息来“杀死”一个 Actor。与`PoisonPill`不同的是，这可能会使 Actor 抛出`ActorKilledException`，并触发失败。Actor 将暂停操作，并询问其监督者如何处理故障，这可能意味着恢复 Actor、重新启动或完全终止 Actor。更多信息，请参阅「[What Supervision Means](https://doc.akka.io/docs/akka/current/general/supervision.html#supervision-directives)」。
+你也可以通过发送一条`Kill`消息来“杀死”一个 Actor。与`PoisonPill`不同的是，这可能会使 Actor 抛出`ActorKilledException`，并触发失败。Actor 将暂停操作，并询问其监督者如何处理故障，这可能意味着恢复 Actor、重新启动或完全终止 Actor。更多信息，请参阅「[监督意味着什么？](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/supervision.md#%E7%9B%91%E7%9D%A3%E6%84%8F%E5%91%B3%E7%9D%80%E4%BB%80%E4%B9%88)」。
 
 像这样使用`Kill`：
 
@@ -896,7 +895,7 @@ victim.tell(akka.actor.Kill.getInstance(), ActorRef.noSender());
 expectTerminated(Duration.ofSeconds(3), victim);
 ```
 
-一般来说，虽然在设计 Actor 交互时不建议过分依赖于`PoisonPill`或`Kill`，但通常情况下，鼓励使用诸如`PleaseCleanupAndStop`之类的协议级（`protocol-level`）消息，因为 Actor 知道如何处理这些消息。像`PoisonPill`和`Kill`这样的信息是为了能够停止那些你无法控制的 Actor  的。
+一般来说，虽然在设计 Actor 交互时不建议过分依赖于`PoisonPill`或`Kill`，但通常情况下，鼓励使用诸如`PleaseCleanupAndStop`之类的协议级消息，因为 Actor 知道如何处理这些消息。像`PoisonPill`和`Kill`这样的信息是为了能够停止那些你无法控制的 Actor  的。
 
 ### 优雅的停止
 
@@ -927,7 +926,7 @@ try {
 
 有一个名为`CoordinatedShutdown`的扩展，它将按特定顺序停止某些 Actor 和服务，并在关闭过程中执行注册的任务。
 
-停机阶段（`shutdown phases`）的顺序在配置`akka.coordinated-shutdown.phases`中定义。默认阶段定义为：
+关闭阶段的顺序在配置`akka.coordinated-shutdown.phases`中定义。默认阶段定义为：
 
 ```xml
 # CoordinatedShutdown is enabled by default and will run the tasks that
@@ -1076,8 +1075,7 @@ CompletionStage<Done> done =
 akka.coordinated-shutdown.exit-jvm = on
 ```
 
-当使用「[Akka 集群](https://doc.akka.io/docs/akka/current/cluster-usage.html
-)」时，当集群节点将自己视为`Exiting`时，`CoordinatedShutdown`将自动运行，即从另一个节点离开将触发离开节点上的关闭过程。当使用 Akka 集群时，会自动添加集群的优雅离开任务，包括集群单例的优雅关闭和集群分片，即运行关闭过程也会触发尚未进行的优雅离开。
+当使用「[Akka 集群](https://github.com/guobinhit/akka-guide/blob/master/articles/clustering/cluster-usage.md)」时，当集群节点将自己视为`Exiting`时，`CoordinatedShutdown`将自动运行，即从另一个节点离开将触发离开节点上的关闭过程。当使用 Akka 集群时，会自动添加集群的优雅离开任务，包括集群单例的优雅关闭和集群分片，即运行关闭过程也会触发尚未进行的优雅离开。
 
 默认情况下，当 JVM 进程退出时，例如通过`kill SIGTERM`信号（`SIGINT`时`Ctrl-C`不起作用），将运行`CoordinatedShutdown`。此行为可以通过以下方式禁用：
 
@@ -1104,7 +1102,7 @@ akka.cluster.run-coordinated-shutdown-when-down = off
 ## Become/Unbecome
 ### 升级
 
-Akka 支持在运行时对 Actor 的消息循环（例如其实现）进行热交换：从 Actor 内部调用`context.become`方法。`become`采用实现新消息处理程序的`PartialFunction<Object, BoxedUnit>`。热交换代码（`hotswapped code`）保存在一个`Stack`中，可以推送和弹出。
+Akka 支持在运行时对 Actor 的消息循环（例如其实现）进行热交换：从 Actor 内部调用`context.become`方法。`become`采用实现新消息处理程序的`PartialFunction<Object, BoxedUnit>`。热交换代码保存在一个`Stack`中，可以压入和弹出。
 
 - **警告**：请注意，Actor 在被其监督者重新启动时将恢复其原始行为。
 
@@ -1155,7 +1153,7 @@ static class HotSwapActor extends AbstractActor {
 }
 ```
 
-`become`方法的这种变体对于许多不同的事情都很有用，例如实现有限状态机（`FSM`，例如「[Dining Hakkers](https://developer.lightbend.com/start/)」）。它将替换当前行为（即行为堆栈的顶部），这意味着你不使用`unbecome`，而是始终显式安装（`installed`）下一个行为。
+`become`方法的这种变体对于许多不同的事情都很有用，例如实现有限状态机（`FSM`，例如「[Dining Hakkers](https://developer.lightbend.com/start/)」）。它将替换当前行为（即行为堆栈的顶部），这意味着你不使用`unbecome`，而是始终显式安装下一个行为。
 
 另一种使用`become`的方法不是替换而是添加到行为堆栈的顶部。在这种情况下，必须注意确保`pop`操作的数量（即`unbecome`）与`push`操作的数量在长期内匹配，否则这将导致内存泄漏，这就是为什么此行为不是默认行为。
 
@@ -1208,7 +1206,7 @@ static class SwapperApp {
 
 `AbstractActorWithStash`类使 Actor 能够临时存储"不能"或"不应该"使用 Actor 当前行为处理的消息。更改 Actor 的消息处理程序后，即在调用`getContext().become()`或`getContext().unbecome()`之前，所有隐藏的消息都可以“`unstashed`”，从而将它们预存到 Actor 的邮箱中。这样，可以按照与最初接收到的消息相同的顺序处理隐藏的消息。扩展`AbstractActorWithStash`的 Actor 将自动获得基于`deque`的邮箱。
 
-- **注释**：抽象类`AbstractActorWithStash`实现了标记接口`RequiresMessageQueue<DequeBasedMessageQueueSemantics>`，如果希望对邮箱进行更多控制，请参阅有关邮箱的文档：「[Mailboxes](https://doc.akka.io/docs/akka/current/mailboxes.html)」。
+- **注释**：抽象类`AbstractActorWithStash`实现了标记接口`RequiresMessageQueue<DequeBasedMessageQueueSemantics>`，如果希望对邮箱进行更多控制，请参阅「[邮箱](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/mailboxes.md)」文档。
 
 下面是`AbstractActorWithStash`类的一个示例：
 
@@ -1244,7 +1242,7 @@ static class ActorWithProtocol extends AbstractActorWithStash {
 }
 ```
 
-调用`stash()`会将当前消息（Actor 最后收到的消息）添加到 Actor 的`stash`中。它通常在处理 Actor 消息处理程序中的默认情况时调用，以存储其他情况未处理的消息。将同一条消息存储两次是非法的；这样做会导致`IllegalStateException`。`stash`也可以是有界的，在这种情况下，调用`stash()`可能导致容量冲突（`capacity violation`），从而导致`StashOverflowException`。可以使用邮箱配置的`stash-capacity`设置（一个`int`值）存储容量。
+调用`stash()`会将当前消息（Actor 最后收到的消息）添加到 Actor 的`stash`中。它通常在处理 Actor 消息处理程序中的默认情况时调用，以存储其他情况未处理的消息。将同一条消息存储两次是非法的；这样做会导致`IllegalStateException`。`stash`也可以是有界的，在这种情况下，调用`stash()`可能导致容量冲突，从而导致`StashOverflowException`。可以使用邮箱配置的`stash-capacity`设置（一个`int`值）存储容量。
 
 调用`unstashAll()`将消息从`stash`排队到 Actor 的邮箱，直到达到邮箱的容量（如果有），请注意，`stash`中的消息是预先发送到邮箱的。如果有界邮箱溢出，将引发`MessageQueueAppendFailedException`。调用`unstashAll()`后，`stash`保证为空。
 
@@ -1258,21 +1256,21 @@ static class ActorWithProtocol extends AbstractActorWithStash {
 
 当 Actor 处理消息时，可能会引发某种异常，例如数据库异常。
 
-### 消息发生了什么
+### 消息发生了什么？
 
-如果在处理邮件时引发异常（即从邮箱中取出并移交给当前行为），则此邮件将丢失。重要的是要知道它不会放回邮箱。因此，如果你想重试处理消息，你需要自己处理它，捕获异常并重试处理流程（`retry your flow`）。确保对重试次数进行了限制，因为你不希望系统进行`livelock`，否则的话，这会在程序没有进展的情况下消耗大量 CPU 周期。
+如果在处理邮件时引发异常（即从邮箱中取出并移交给当前行为），则此邮件将丢失。重要的是要知道它不会放回邮箱。因此，如果你想重试处理消息，你需要自己处理它，捕获异常并重试处理流程。确保对重试次数进行了限制，因为你不希望系统进行`livelock`，否则的话，这会在程序没有进展的情况下消耗大量 CPU 周期。
 
-### 邮箱发生了什么
+### 邮箱发生了什么》
 
 如果在处理邮件时引发异常，则邮箱不会发生任何异常。如果 Actor 重新启动，则会出现相同的邮箱。因此，该邮箱上的所有邮件也将在那里。
 
-### Actor 发现了什么
+### Actor 发生了什么？
 
 如果 Actor 内的代码抛出异常，则该 Actor 将被挂起，并且监控过程将启动。根据监督者的决定，Actor 被恢复（好像什么都没有发生）、重新启动（清除其内部状态并从头开始）或终止。
 
 ## 初始化模式
 
-Actor 的丰富生命周期钩子提供了一个有用的工具箱来实现各种初始化模式（`initialization patterns`）。在`ActorRef`的生命周期中，Actor 可能会经历多次重新启动，旧实例被新实例替换，外部观察者看不见内部的变化，外部观察者只看到`ActorRef`引用。
+Actor 的丰富生命周期钩子提供了一个有用的工具箱来实现各种初始化模式。在`ActorRef`的生命周期中，Actor 可能会经历多次重新启动，旧实例被新实例替换，外部观察者看不见内部的变化，外部观察者只看到`ActorRef`引用。
 
 每次实例化一个 Actor 时，可能都需要初始化，但有时只需要在创建`ActorRef`时对第一个实例进行初始化。以下部分提供了不同初始化需求的模式。
 
@@ -1310,7 +1308,7 @@ public void preRestart(Throwable reason, Optional<Object> message) throws Except
 
 请注意，子 Actor 仍然重新启动，但没有创建新的`ActorRef`。可以递归地为子级应用相同的原则，确保只在创建引用时调用它们的`preStart()`方法。
 
-有关更多信息，请参阅「[What Restarting Means](https://doc.akka.io/docs/akka/current/general/supervision.html#supervision-restart)」。
+有关更多信息，请参阅「[重启意味着什么？](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/supervision.md#%E9%87%8D%E5%90%AF%E6%84%8F%E5%91%B3%E7%9D%80%E4%BB%80%E4%B9%88)」。
 
 ### 通过消息传递初始化
 

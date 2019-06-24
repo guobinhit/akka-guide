@@ -5,7 +5,7 @@
 
 在 IntelliJ 中，自动导入设置位于`Editor/General/Auto Import`下。使用诸如`akka.stream.javadsl*`或`akka.stream.scaladsl*`或`*javadsl*`或`*scaladsl*`等名称掩码指示要从`import/completion`中排除的 DSL。请参见下面的屏幕截图：
 
-![auto-import](https://github.com/guobinhit/akka-guide/tree/master/images/additional/ide/auto-import.png)
+![auto-import](https://github.com/guobinhit/akka-guide/blob/master/images/additional/ide/auto-import.png)
 
 Eclipse 的使用者则可以在 IDE 的`Window/Preferences/Java/Appearance/Type Filters`路径下进行配置。
 

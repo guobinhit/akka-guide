@@ -4,7 +4,7 @@
 ## 示例项目
 你可以查看「[监督示例项目](https://developer.lightbend.com/start/?group=akka&project=akka-samples-supervision-java)」，以了解实际使用的情况。
 
-## 监督是什么意思
+## 监督意味着什么？
 正如「[Actor 系统](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/actor-systems.md)」中监督所描述的，Actor 之间的依赖关系是：`supervisor`将任务委托给子级，因此必须对其失败作出响应。当子级检测到故障（即抛出异常）时，它会挂起自身及其所有下级，并向其监督者发送一条消息，也就是故障信号。根据监督工作的性质和失败的性质，监督者有以下四种选择：
 
 - 恢复子级，保持其累积的内部状态

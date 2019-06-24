@@ -9,10 +9,10 @@
 
 Akka 使用「[Typesafe Config Library](https://github.com/lightbend/config)」，这对于配置你自己的应用程序或使用或不使用 Akka 构建的库也是一个不错的选择。这个库是用 Java 实现的，没有外部依赖关系；你应该看看它的文档，特别是关于「[ConfigFactory](https://lightbend.github.io/config/latest/api/com/typesafe/config/ConfigFactory.html)」。
 
-- **警告**：如果你使用来自`2.9.x`系列的 Scala REPL 的 Akka，并且没有向`ActorSystem`提供自己的`ClassLoader`，那么使用`-Yrepl-sync`启动 REPL，以解决 REPLs 提供的上下文类加载器中的缺陷。
+- **警告**：如果你使用来自`2.9.x`系列的 Scala REPL 的 Akka，并且没有向`ActorSystem`提供自己的`ClassLoader`，那么需要使用`-Yrepl-sync`启动 REPL，以解决 REPLs 提供的上下文类加载器中的缺陷。
 
 ## 从哪里读取配置？
-Akka 的所有配置（`configuration`）都保存在`ActorSystem`实例中，或者换句话说，从外部看，`ActorSystem`是配置信息的唯一使用者。在构造 Actor 系统时，可以传入`Config`对象，也可以不传入，其中第二种情况等同于传递`ConfigFactory.load()`（使用正确的类加载器）。这大致意味着默认值是解析类路径根目录下的所有`application.conf`、`application.json`和`application.properties`。有关详细信息，请参阅上述文档。然后，Actor 系统合并在类路径根目录下找到的所有`reference.conf`资源，以形成可靠的（`fallback`）配置，即内部使用。
+Akka 的所有配置（`configuration`）都保存在`ActorSystem`实例中，或者换句话说，从外部看，`ActorSystem`是配置信息的唯一使用者。在构造 Actor 系统时，可以传入`Config`对象，也可以不传入，其中第二种情况等同于传递`ConfigFactory.load()`，使用正确的类加载器。这大致意味着默认值是解析类路径根目录下的所有`application.conf`、`application.json`和`application.properties`文件。有关详细信息，请参阅上述文档。然后，Actor 系统合并在类路径根目录下找到的所有`reference.conf`资源，以形成最终的配置，以供内部使用。
 
 ```java
 appConfig.withFallback(ConfigFactory.defaultReference(classLoader))
@@ -109,7 +109,7 @@ akka {
   }
 }
 ```
-## 包括文件
+## 包含文件
 有时，包含另一个配置文件可能很有用，例如，如果你有一个`application.conf`，具有所有与环境无关的设置，然后覆盖特定环境的某些设置。
 
 使用`-Dconfig.resource=/dev.conf`指定系统属性将加载`dev.conf`文件，其中包括`application.conf`
@@ -163,7 +163,7 @@ System.out.println(system.settings());
 在配置文件的几个地方，可以指定由 Akka 实例化的某个对象的完全限定类名。这是使用 Java 反射完成的，Java 反射又使用类加载器。在应用程序容器或 OSGi 包等具有挑战性的环境中获得正确的方法并不总是很简单的，Akka 的当前方法是，每个`ActorSystem`实现存储当前线程的上下文类加载器（如果可用，否则只存储其自己的加载器，如`this.getClass.getClassLoader`）并将其用于所有反射访问。这意味着将 Akka 放在引导类路径上会从奇怪的地方产生`NullPointerException`：这是不支持的。
 
 ## 应用程序特定设置
-配置也可用于特定于应用程序的设置。一个好的做法是将这些设置放在「[Extension](https://doc.akka.io/docs/akka/current/extending-akka.html#extending-akka-settings)」中。
+配置也可用于特定于应用程序的设置。一个好的做法是将这些设置放在「[扩展](https://github.com/guobinhit/akka-guide/blob/master/articles/index-utilities/extending-akka.md#%E5%BA%94%E7%94%A8%E7%A8%8B%E5%BA%8F%E7%89%B9%E5%AE%9A%E8%AE%BE%E7%BD%AE)」中。
 
 ### 配置多个 ActorSystem
 如果你有多个`ActorSystem`（或者你正在编写一个库，并且有一个`ActorSystem`可能与应用程序的`ActorSystem`分离），那么你可能需要分离每个系统的配置。
@@ -206,7 +206,7 @@ my.own.setting = 42
 my.other.setting = "hello"
 // plus myapp1 and myapp2 subtrees
 ```
-- **注释**：配置库非常强大，说明其所有功能超出了本文的范围。尤其不包括如何将其他配置文件包含在其他文件中（参见「[Including files](https://doc.akka.io/docs/akka/current/general/configuration.html#including-files)」中的一个小示例）以及通过路径替换复制配置树的部分。
+- **注释**：配置库非常强大，说明其所有功能超出了本文的范围。尤其不包括如何将其他配置文件包含在其他文件中（参见「[包含文件](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/configuration.md#%E5%8C%85%E5%90%AB%E6%96%87%E4%BB%B6)」中的一个小示例）以及通过路径替换复制配置树的部分。
 
 在实例化`ActorSystem`时，还可以通过其他方式以编程方式指定和分析配置。
 
@@ -274,7 +274,7 @@ ActorSystem system = ActorSystem.create("myname", complete);
 请记住，你通常可以在`application.conf`中添加另一个`include`语句，而不是编写代码。`application.conf`顶部的`include`将被`application.conf`的其余部分覆盖，而底部的`include`将覆盖前面的内容。
 
 ## Actor 部署配置
-特定 Actor 的部署设置可以在配置的`akka.actor.deployment`部分中定义。在部署部分，可以定义调度程序、邮箱、路由器设置和远程部署等内容。这些功能的配置在详细介绍相应主题的章节中进行了描述。示例如下：
+特定 Actor 的部署设置可以在配置的`akka.actor.deployment`部分中定义。在部署部分，可以定义调度程序、邮箱、路由设置和远程部署等内容。这些功能的配置在详细介绍相应主题的章节中进行了描述。示例如下：
 
 ```
 akka.actor.deployment {
