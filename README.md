@@ -1,4 +1,4 @@
-# Akka 中文指南
+# Akka 中文指南 [![Build Status](https://travis-ci.org/guobinhit/akka-guide.svg?branch=master)](https://travis-ci.org/guobinhit/akka-guide) 
 
 Akka 是一个用 Scala 编写的库，用于在 JVM 平台上简化编写具有可容错的、高可伸缩性的 Java 和 Scala 的 Actor 模型应用，其同时提供了Java 和 Scala 的开发接口。Akka 允许我们专注于满足业务需求，而不是编写初级代码。在 Akka 中，Actor 之间通信的唯一机制就是消息传递。Akka 对 Actor 模型的使用提供了一个抽象级别，使得编写正确的并发、并行和分布式系统更加容易。Actor 模型贯穿了整个 Akka 库，为我们提供了一致的理解和使用它们的方法。
 
