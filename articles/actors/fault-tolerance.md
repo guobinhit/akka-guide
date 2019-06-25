@@ -22,7 +22,7 @@ libraryDependencies += "com.typesafe.akka" %% "akka-actor" % "2.5.21"
 
 ## 简介
 
-正如在「[Actor System](https://doc.akka.io/docs/akka/current/general/actor-systems.html)」中所解释的，每个 Actor 都是其子级的监督者，因此每个 Actor 定义了故障处理的监督策略。这一策略不能在 Actor 系统启动之后改变，因为它是 Actor 系统结构的一个组成部分。
+正如在「[Actor 系统](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/actor-systems.md)」中所解释的，每个 Actor 都是其子级的监督者，因此每个 Actor 都定义了故障处理的监督策略。这一策略不能在 Actor 系统启动之后改变，因为它是 Actor 系统结构的一个组成部分。
 
 ## 实践中的故障处理
 
@@ -53,15 +53,15 @@ public SupervisorStrategy supervisorStrategy() {
 }
 ```
 
-我们选择了一些众所周知的异常类型，以演示在「[supervision](https://doc.akka.io/docs/akka/current/general/supervision.html)」中描述的故障处理指令的应用。首先，一对一策略（`one-for-one strategy`）意味着每个子级都被单独对待（这和`all-for-one`策略的效果非常相似，唯一的区别是`all-for-one`策略中任何决定都适用于监督者的所有子级，而不仅仅是失败的子级）。在上面的示例中，`10`和`Duration.create(1, TimeUnit.MINUTES)`分别传递给`maxNrOfRetries`和`withinTimeRange`参数，这意味着策略每分钟重新启动一个子级最多`10`次。如果在`withinTimeRange`持续时间内重新启动计数超过`maxNrOfRetries`，则子 Actor 将停止。
+我们选择了一些众所周知的异常类型，以演示在「[监督](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/supervision.md)」中描述的故障处理指令的应用。首先，“一对一策略”意味着每个子级都被单独对待（这和`all-for-one`策略的效果非常相似，唯一的区别是`all-for-one`策略中任何决定都适用于监督者的所有子级，而不仅仅是失败的子级）。在上面的示例中，`10`和`Duration.create(1, TimeUnit.MINUTES)`分别传递给`maxNrOfRetries`和`withinTimeRange`参数，这意味着策略每分钟重新启动一个子级最多`10`次。如果在`withinTimeRange`持续时间内重新启动计数超过`maxNrOfRetries`，则子 Actor 将停止。
 
 此外，这些参数还有一些特殊的值。如果你指定：
 
-- `-1`到`maxNrOfRetries`，`Duration.Inf()`到`withinTimeRange`
+- `maxNrOfRetries`为`-1`，`withinTimeRange`为`Duration.Inf()`
   - 总是无限制地重新启动子级
-- `-1`到`maxNrOfRetries`，有限的`Duration`到`withinTimeRange`
+- `maxNrOfRetries`为`-1`，`withinTimeRange`为有限的`Duration`
   - `maxNrOfRetries`被视为`1`
-- 非负数到`maxNrOfRetries`，`Duration.Inf()`到`withinTimeRange`
+- `maxNrOfRetries`为非负数，`withinTimeRange`为`Duration.Inf()`
   - `withinTimeRange`被视为无限持续（即无论需要多长时间），一旦重新启动计数超过`maxNrOfRetries`，子 Actor 将停止。
 
 构成主体的`match`语句，由`DeciderBuilder`的`match`方法返回的`PFBuilder`组成，其中`builder`由`build`方法完成。这是将子故障类型映射到相应指令的部分。
@@ -70,7 +70,7 @@ public SupervisorStrategy supervisorStrategy() {
 
 ### 默认监督策略
 
-如果定义的策略不包括引发的异常，则使用升级（`escalate`）。
+如果定义的策略不包括引发的异常，则使用升级。
 
 如果没有为 Actor 定义监督策略，则默认情况下会处理以下异常：
 
@@ -84,19 +84,19 @@ public SupervisorStrategy supervisorStrategy() {
 
 ### 停止监督策略
 
-更接`Erlang`的方法是在子级失败时采取措施阻止他们，然后在`DeathWatch`显示子级死亡时由监督者采取纠正措施。此策略还预打包为`SupervisorStrategy.stoppingStrategy`，并附带一个`StoppingSupervisorStrategy`配置程序，以便在你希望`/user`监护人应用它时使用。
+更接近 Erlang 的方法是在子级失败时采取措施阻止他们，然后在`DeathWatch`显示子级死亡时由监督者采取纠正措施。此策略还预打包为`SupervisorStrategy.stoppingStrategy`，并附带一个`StoppingSupervisorStrategy`配置程序，以便在你希望`/user`监护者应用它时使用。
 
 ### 记录 Actor 的失败
 
-默认情况下，除非升级，否则`SupervisorStrategy`会记录故障。升级的故障应该在层次结构中更高的级别处理并记录下来。
+默认情况下，除非升级，否则`SupervisorStrategy`会记录故障。升级的故障应该在层次结构中更高的级别处理并记录。
 
-通过在实例化时将`loggingEnabled`设置为`false`，可以将`SupervisorStrategy`的默认日志设置为静音。定制的日志记录可以在`Decider`内完成。请注意，当在监督者 Actor 内部声明`SupervisorStrategy`时，对当前失败的子级的引用可用作`sender`。
+通过在实例化时将`loggingEnabled`设置为`false`，可以将`SupervisorStrategy`的默认日志设置为不可用。定制的日志记录可以在`Decider`内完成。请注意，当在监督者 Actor 内部声明`SupervisorStrategy`时，对当前失败的子级的引用可用作`sender`。
 
 你还可以通过重写`logFailure`方法自定义自己的`SupervisorStrategy`中的日志记录。
 
 ## 顶级 Actor 的监督者
 
-顶级 Actor 是指使用`system.actorOf()`创建的 Actor，它们是「[User Guardian](https://doc.akka.io/docs/akka/current/general/supervision.html#user-guardian)」的子代。守护者应用配置的策略，在这种情况下没有应用特殊的规则。
+顶级 Actor 是指使用`system.actorOf()`创建的 Actor，它们是「[用户守护者](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/supervision.md#%E9%A1%B6%E7%BA%A7%E7%9B%91%E7%9D%A3%E8%80%85)」的子代。守护者应用配置的策略，在这种情况下没有应用特殊的规则。
 
 ### 测试应用
 
