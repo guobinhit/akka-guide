@@ -25,9 +25,6 @@ libraryDependencies += "com.typesafe.akka" %% "akka-osgi" % "2.5.23"
 你可以查看「[OSGi Dining Hakkers](https://developer.lightbend.com/start/?group=akka&project=akka-samples-osgi-dining-hakkers)」示例项目，以了解其在实践中的使用情况。
 
 ## 背景
-These legacy capabilities are OSGi’s major strength and its major weakness. The creators of OSGi realized early on that implementors would be unlikely to rush to support OSGi metadata in existing JARs. There were already a handful of new concepts to learn in the JRE and the added value to teams that were managing well with straight J2EE was not obvious. Facilities emerged to “wrap” binary JARs so they could be used as bundles, but this functionality was only used in limited situations. An application of the “80/20 Rule” here would have that “80% of the complexity is with 20% of the configuration”, but it was enough to give OSGi a reputation that has stuck with it to this day.
-
-This document aims to the productivity basics folks need to use it with Akka, the 20% that users need to get 80% of what they want. For more information than is provided here, OSGi In Action is worth exploring.
 
 「[OSGi](https://www.osgi.org/developer/where-to-start/https://www.manning.com/books/osgi-in-action)」是一个成熟的基于组件的系统打包和部署标准。它具有与项目 Jigsaw（最初计划为 JDK 1.8）相似的功能，但它有更强大的设施来支持遗留 Java 代码。这就是说，尽管 Jigsaw-ready 模块需要对大多数源文件进行重大更改，有时还需要对整个应用程序的结构进行修改，但 OSGi 可以用于将几乎任何 Java 代码模块化为 JDK 1.2，通常对二进制文件没有任何更改。
 
