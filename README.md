@@ -59,7 +59,7 @@ Akka 是一个用 Scala 编写的库，用于在 JVM 平台上简化编写具有
   - [Actor 生命周期](https://github.com/guobinhit/akka-guide/blob/master/articles/typed/actor-lifecycle.md)
   - [交互模式](https://doc.akka.io/docs/akka/current/typed/interaction-patterns.html)
   - [容错](https://github.com/guobinhit/akka-guide/blob/master/articles/typed/fault-tolerance.md)
-  - [Actor Discovery](https://github.com/guobinhit/akka-guide/blob/master/articles/typed/actor-discovery.md)
+  - [Actor 发现](https://github.com/guobinhit/akka-guide/blob/master/articles/typed/actor-discovery.md)
   - [路由](https://github.com/guobinhit/akka-guide/blob/master/articles/typed/routers.md)
   - [Stash](https://github.com/guobinhit/akka-guide/blob/master/articles/typed/stash.md)
   - [流](https://github.com/guobinhit/akka-guide/blob/master/articles/typed/stream.md)
