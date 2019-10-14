@@ -91,7 +91,7 @@ Akka 附带的路由逻辑包括：
 
 `Router`是不可变的，`RoutingLogic`是线程安全的；这意味着它们也可以在 Actor 之外使用。
 
-- **注释**：一般来说，发送到路由的任何消息都将发送到路由器，但有一个例外。特殊的「[Broadcast 消息](https://doc.akka.io/docs/akka/current/routing.html#broadcast-messages)」将发送到路由中的所有路由器。因此，当你将「[BalancingPool](https://doc.akka.io/docs/akka/current/routing.html#balancing-pool)」用于「[特殊处理的消息](https://doc.akka.io/docs/akka/current/routing.html#router-special-messages)」中描述的路由器时，不要使用`Broadcast`消息。
+- **注释**：一般来说，发送到路由的任何消息都将发送到路由器，但有一个例外。特殊的「[Broadcast 消息](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/routing.md#broadcast-%E6%B6%88%E6%81%AF)」将发送到路由中的所有路由器。因此，当你将「[BalancingPool](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/routing.md#balancingpool)」用于「[特殊处理的消息](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/routing.md#%E7%89%B9%E6%AE%8A%E5%A4%84%E7%90%86%E7%9A%84%E6%B6%88%E6%81%AF)」中描述的路由器时，不要使用`Broadcast`消息。
 
 ## 路由器 Actor
 
@@ -106,11 +106,11 @@ Akka 附带的路由逻辑包括：
 
 你通过路由器 Actor 向路由发送消息，方式与普通 Actor 相同，即通过其`ActorRef`。路由 Actor 在不更改原始发件人的情况下将消息转发到其路由器。当路由器回复路由的消息时，回复将发送到原始发件人，而不是发送给路由 Actor。
 
-- **注释**：一般来说，发送到路由的任何消息都会发送到路由器，但也有一些例外。这些信息记录在下面的「[特殊处理的消息](https://doc.akka.io/docs/akka/current/routing.html#router-special-messages)」部分中。
+- **注释**：一般来说，发送到路由的任何消息都会发送到路由器，但也有一些例外。这些信息记录在下面的「[特殊处理的消息](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/routing.md#%E7%89%B9%E6%AE%8A%E5%A4%84%E7%90%86%E7%9A%84%E6%B6%88%E6%81%AF)」部分中。
 
 ### 池
 
-下面的代码和配置片段演示了如何创建将消息转发到五个`Worker`路由器的「[round-robin](https://doc.akka.io/docs/akka/current/routing.html#round-robin-router)」路由。路由器将被创建为路由的子级。
+下面的代码和配置片段演示了如何创建将消息转发到五个`Worker`路由器的「[round-robin](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/routing.md#roundrobinpool-%E5%92%8C-roundrobingroup)」路由。路由器将被创建为路由的子级。
 
 ```java
 akka.actor.deployment {
@@ -150,7 +150,7 @@ ActorRef routerRemote =
 
 #### 发送者
 
-默认情况下，当路由器发送消息时，它将「[隐式地将自己设置为发送者](https://doc.akka.io/docs/akka/current/actors.html#actors-tell-sender)」。
+默认情况下，当路由器发送消息时，它将「[隐式地将自己设置为发送者](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/actors.md#tell-fire-forget)」。
 
 ```java
 getSender().tell("reply", getSelf());
@@ -188,7 +188,7 @@ final ActorRef router =
 ```
 
 ### 组
-有时，与其让路由 Actor 创建其路由器，不如单独创建路由器并将其提供给路由供其使用。你可以通过将路由器的路径传递给路由的配置来实现这一点。消息将与`ActorSelection`一起发送到这些路径，「[通配符](https://doc.akka.io/docs/akka/current/general/addressing.html#querying-the-logical-actor-hierarchy)」可以并且将产生与显式使用`ActorSelection`相同的语义。
+有时，与其让路由 Actor 创建其路由器，不如单独创建路由器并将其提供给路由供其使用。你可以通过将路由器的路径传递给路由的配置来实现这一点。消息将与`ActorSelection`一起发送到这些路径，「[通配符](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/addressing.md#%E6%9F%A5%E8%AF%A2%E9%80%BB%E8%BE%91-actor-%E5%B1%82%E6%AC%A1%E7%BB%93%E6%9E%84)」可以并且将产生与显式使用`ActorSelection`相同的语义。
 
 下面的示例演示了如何通过向路由提供三个路由器 Actor 的路径字符串来创建路由。
 
@@ -354,9 +354,9 @@ ActorRef router8 = getContext().actorOf(new RandomGroup(paths).props(), "router8
 
 一种将工作从繁忙的路由器重新分配到空闲的路由器的路由。所有路由共享同一个邮箱。
 
-- **注释 1**：`BalancingPool`的特性是，它的路由器没有真正不同的身份，它们有不同的名称，但在大多数情况下，与它们交互不会以正常的 Actor 结束。因此，你不能将其用于需要状态保留在路由中的工作流，在这种情况下，你必须在消息中包含整个状态。使用「[SmallestMailboxPool](https://doc.akka.io/docs/akka/current/routing.html#smallestmailboxpool)」，你可以拥有一个垂直扩展的服务，该服务可以在回复原始客户端之前以状态方式与后端的其他服务交互。另一个优点是，它不像`BalancingPool`那样对消息队列的实现进行限制。
+- **注释 1**：`BalancingPool`的特性是，它的路由器没有真正不同的身份，它们有不同的名称，但在大多数情况下，与它们交互不会以正常的 Actor 结束。因此，你不能将其用于需要状态保留在路由中的工作流，在这种情况下，你必须在消息中包含整个状态。使用「[SmallestMailboxPool](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/routing.md#smallestmailboxpool)」，你可以拥有一个垂直扩展的服务，该服务可以在回复原始客户端之前以状态方式与后端的其他服务交互。另一个优点是，它不像`BalancingPool`那样对消息队列的实现进行限制。
 
-- **注释 2**：在路由使用「[BalancingPool](https://doc.akka.io/docs/akka/current/routing.html#balancing-pool)」时，不要使用「[Broadcast 消息](https://doc.akka.io/docs/akka/current/routing.html#broadcast-messages)」，详情见「[特殊处理的消息](https://doc.akka.io/docs/akka/current/routing.html#router-special-messages)」中的描述。
+- **注释 2**：在路由使用「[BalancingPool](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/routing.md#balancingpool)」时，不要使用「[Broadcast 消息](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/routing.md#broadcast-%E6%B6%88%E6%81%AF)」，详情见「[特殊处理的消息](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/routing.md#%E7%89%B9%E6%AE%8A%E5%A4%84%E7%90%86%E7%9A%84%E6%B6%88%E6%81%AF)」中的描述。
 
 在配置文件中定义`BalancingPool`：
 
@@ -395,9 +395,9 @@ akka.actor.deployment {
 }
 ```
 
-`BalancingPool`自动为其路由使用一个特殊的`BalancingDispatcher`，并且会忽略在路由`Props`对象上设置的任何调度程序。这是为了通过所有路由器共享同一个邮箱来实现平衡语义。
+`BalancingPool`自动为其路由使用一个特殊的`BalancingDispatcher`，并且会忽略在路由`Props`对象上设置的任何调度器。这是为了通过所有路由器共享同一个邮箱来实现平衡语义。
 
-虽然无法更改路由使用的调度程序，但可以对使用的执行器进行微调。默认情况下，将使用`fork-join-dispatcher`，并可以按照「[调度器](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/dispatchers.md)」中的说明进行配置。在期望路由器执行阻塞操作的情况下，用一个`thread-pool-executor`替换它可能很有用，该执行器显式地提示分配的线程数：
+虽然无法更改路由使用的调度器，但可以对使用的执行器进行微调。默认情况下，将使用`fork-join-dispatcher`，并可以按照「[调度器](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/dispatchers.md)」中的说明进行配置。在期望路由器执行阻塞操作的情况下，用一个`thread-pool-executor`替换它可能很有用，该执行器显式地提示分配的线程数：
 
 ```java
 akka.actor.deployment {
@@ -417,7 +417,7 @@ akka.actor.deployment {
 }
 ```
 
-在默认的无界邮箱不太适合的情况下，也可以更改平衡调度程序使用的`mailbox`。无论是否需要管理每个消息的优先级，都可能出现这样的场景。因此，可以实现优先级邮箱并配置调度程序：
+在默认的无界邮箱不太适合的情况下，也可以更改平衡调度器使用的`mailbox`。无论是否需要管理每个消息的优先级，都可能出现这样的场景。因此，可以实现优先级邮箱并配置调度器：
 
 ```java
 akka.actor.deployment {
@@ -431,7 +431,7 @@ akka.actor.deployment {
 }
 ```
 
-- **注释**：请记住，`BalancingDispatcher`需要一个消息队列，该队列对于多个并发消费者必须是线程安全的。因此，对于支持自定义邮箱的消息队列，这种调度程序必须实现`akka.dispatch.MultipleConsumerSemantics`。请参阅有关如何在「[邮箱](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/mailboxes.md)」中实现自定义邮箱的详细信息。
+- **注释**：请记住，`BalancingDispatcher`需要一个消息队列，该队列对于多个并发消费者必须是线程安全的。因此，对于支持自定义邮箱的消息队列，这种调度器必须实现`akka.dispatch.MultipleConsumerSemantics`。请参阅有关如何在「[邮箱](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/mailboxes.md)」中实现自定义邮箱的详细信息。
 
 特别地，在`BalancingPool`没有`Group`变量。
 
@@ -521,7 +521,7 @@ List<String> paths = Arrays.asList("/user/workers/w1", "/user/workers/w2", "/use
 ActorRef router16 = getContext().actorOf(new BroadcastGroup(paths).props(), "router16");
 ```
 
-- **注释**：广播路由总是向它们的路由器广播每一条消息。如果你不想广播每一条消息，那么你可以使用非广播路由，并根据需要使用「[Broadcast 消息](https://doc.akka.io/docs/akka/current/routing.html#broadcast-messages)」。
+- **注释**：广播路由总是向它们的路由器广播每一条消息。如果你不想广播每一条消息，那么你可以使用非广播路由，并根据需要使用「[Broadcast 消息](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/routing.md#broadcast-%E6%B6%88%E6%81%AF)」。
 
 ### ScatterGatherFirstCompletedPool 和 ScatterGatherFirstCompletedGroup
 
@@ -818,7 +818,7 @@ ActorRef router28 = getContext().actorOf(new ConsistentHashingGroup(paths).props
 
 大多数发送给路由 Actor 的消息将根据路由的路由逻辑进行转发。但是，有几种类型的消息具有特殊的行为。
 
-请注意，这些特殊消息（`Broadcast`消息除外）仅由独立的路由 Actor 处理，而不是由「[一个简单的路由](https://doc.akka.io/docs/akka/current/routing.html#simple-router)」中描述的`akka.routing.Router`组件处理。
+请注意，这些特殊消息（`Broadcast`消息除外）仅由独立的路由 Actor 处理，而不是由「[一个简单的路由](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/routing.md#%E4%B8%80%E4%B8%AA%E7%AE%80%E5%8D%95%E7%9A%84%E8%B7%AF%E7%94%B1)」中描述的`akka.routing.Router`组件处理。
 
 ### Broadcast 消息
 
@@ -970,7 +970,7 @@ ActorRef router31 =
 
 在「[配置](https://github.com/guobinhit/akka-guide/blob/master/articles/general-concepts/configuration.md)」的`akka.actor.deployment.default.optimal-size-exploring-resizer`部分，其中还描述了其他几个可用的配置选项。
 
-- **注释**：调整大小是通过向 Actor 池发送消息触发的，但它不是同步完成的；而是将消息发送到 “head” `RouterActor`以执行大小更改。因此，你不能依赖调整大小来在所有其他路由器都忙时立即创建新的工作线程，因为刚发送的消息将排队到繁忙 Actor 的邮箱中。要解决此问题，请将池配置为使用平衡调度器，有关详细信息，请参阅「[配置调度器](https://doc.akka.io/docs/akka/current/routing.html#configuring-dispatchers)」。
+- **注释**：调整大小是通过向 Actor 池发送消息触发的，但它不是同步完成的；而是将消息发送到 “head” `RouterActor`以执行大小更改。因此，你不能依赖调整大小来在所有其他路由器都忙时立即创建新的工作线程，因为刚发送的消息将排队到繁忙 Actor 的邮箱中。要解决此问题，请将池配置为使用平衡调度器，有关详细信息，请参阅「[配置调度器](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/routing.md#%E9%85%8D%E7%BD%AE%E8%B0%83%E5%BA%A6%E5%99%A8)」。
 
 ## Akka 内的路由设计
 
@@ -1063,7 +1063,7 @@ static final class TestRoutee implements Routee {
   assertEquals(r3.getRoutees().get(2), routeeList.get(1));
 ```
 
-你可以在这里停下来，使用一个`akka.routing.Router`中提供的`RedundancyRoutingLogic`，如「[一个简单的路由](https://doc.akka.io/docs/akka/current/routing.html#simple-router)」中所述。
+你可以在这里停下来，使用一个`akka.routing.Router`中提供的`RedundancyRoutingLogic`，如「[一个简单的路由](https://github.com/guobinhit/akka-guide/blob/master/articles/actors/routing.md#%E4%B8%80%E4%B8%AA%E7%AE%80%E5%8D%95%E7%9A%84%E8%B7%AF%E7%94%B1)」中所述。
 
 让我们继续，把它变成一个独立的、可配置的路由 Actor。
 
