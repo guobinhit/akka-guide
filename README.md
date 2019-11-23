@@ -8,6 +8,7 @@ Akka 是一个用 Scala 编写的库，用于在 JVM 平台上简化编写具有
 
 
 - [Gitter Chat](https://gitter.im/akka/akka?source=orgpage)，Akka 在线交流平台；
+- [Akka Forums](https://discuss.lightbend.com/c/akka/)，Akka 论坛；
 - [Akka in GitHub](https://github.com/akka/akka)，Akka 开源项目仓库；
 - [Akka Official Website](https://akka.io/)，Akka 官网；
 - [Akka Java API](https://doc.akka.io/japi/akka/2.6/overview-summary.html)，Akka 应用程序编程接口。
