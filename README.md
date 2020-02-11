@@ -14,7 +14,7 @@ Akka 是一个用 Scala 编写的库，用于在 JVM 平台上简化编写具有
 - [Akka Java API](https://doc.akka.io/japi/akka/2.6/overview-summary.html)，Akka 应用程序编程接口。
 
 
-## 快速入门指南
+## 快速入门指南 
 
 - [快速入门 Akka Java 指南](https://github.com/guobinhit/akka-guide/blob/master/articles/qucikstart-akka-java.md)
 - [快速入门 Akka Scala 指南](https://developer.lightbend.com/guides/akka-quickstart-scala/)
