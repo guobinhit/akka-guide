@@ -1,6 +1,6 @@
 # Akka 中文指南
 
-![author](https://img.shields.io/badge/author-chariesgavin-blueviolet.svg)![last commit](https://img.shields.io/github/last-commit/guobinhit/akka-guide.svg)![issues](https://img.shields.io/github/issues/guobinhit/akka-guide.svg)![stars](https://img.shields.io/github/stars/guobinhit/akka-guide.svg)![forks](	https://img.shields.io/github/forks/guobinhit/akka-guide.svg)![license](https://img.shields.io/github/license/guobinhit/akka-guide.svg)
+![author](https://img.shields.io/badge/author-chariesgavin-blueviolet.svg)![last commit](https://img.shields.io/github/last-commit/guobinhit/akka-guide.svg)![issues](https://img.shields.io/github/issues/guobinhit/akka-guide.svg)![stars](https://img.shields.io/github/stars/guobinhit/akka-guide.svg)![forks](https://img.shields.io/github/forks/guobinhit/akka-guide.svg)![license](https://img.shields.io/github/license/guobinhit/akka-guide.svg)
 
 > **更轻松地构建强大的反应式、并发和分布式应用程序**
 
