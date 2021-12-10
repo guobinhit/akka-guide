@@ -11,10 +11,10 @@ import java.util.concurrent.TimeUnit;
 
 
 /**
- * @author bin.guo
- * @Copyright 易宝支付(YeePay)
+ * @author Charies Gavin
+ *         https:github.com/guobinhit
  * @date 8/12/19,2:42 PM
- * @description
+ * @description router actor
  */
 public class RouterActor extends AbstractActor {
 
