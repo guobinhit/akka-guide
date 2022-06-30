@@ -81,17 +81,30 @@ Akka 程序员面临的主要设计挑战之一是为 Actor 选择最佳的粒�
 我们将用来传递注册请求及其确认的消息有一个简单的定义：
 
 ```java
-public static final class RequestTrackDevice {
-  public final String groupId;
-  public final String deviceId;
+public class DeviceManager extends AbstractBehavior<DeviceManager.Command> {
 
-  public RequestTrackDevice(String groupId, String deviceId) {
-    this.groupId = groupId;
-    this.deviceId = deviceId;
+  public interface Command {}
+
+  public static final class RequestTrackDevice
+      implements DeviceManager.Command, DeviceGroup.Command {
+    public final String groupId;
+    public final String deviceId;
+    public final ActorRef<DeviceRegistered> replyTo;
+
+    public RequestTrackDevice(String groupId, String deviceId, ActorRef<DeviceRegistered> replyTo) {
+      this.groupId = groupId;
+      this.deviceId = deviceId;
+      this.replyTo = replyTo;
+    }
   }
-}
 
-public static final class DeviceRegistered {
+  public static final class DeviceRegistered {
+    public final ActorRef<Device.Command> device;
+
+    public DeviceRegistered(ActorRef<Device.Command> device) {
+      this.device = device;
+    }
+  }
 }
 ```
 在这种情况下，我们在消息中没有包含请求 ID 字段。由于注册只发生一次，当组件将系统连接到某个网络协议时，ID 并不重要。但是，包含请求 ID 通常是一种最佳实践。
